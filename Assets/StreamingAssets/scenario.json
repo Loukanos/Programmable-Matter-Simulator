@@ -1,0 +1,45 @@
+{
+  "gridSize": [10, 15, 10],
+  "maxCycles": 15,
+  "particles": [
+    { "id": 1,  "type": "Chao",  "position": [3, 0, 3] },
+    { "id": 2,  "type": "Chao",  "position": [4, 0, 3] },
+    { "id": 3,  "type": "Chao",  "position": [5, 0, 3] },
+    { "id": 4,  "type": "Chao",  "position": [3, 0, 4] },
+    { "id": 5,  "type": "Chao",  "position": [4, 0, 4] },
+    { "id": 6,  "type": "Chao",  "position": [5, 0, 4] },
+    { "id": 7,  "type": "Chao",  "position": [3, 0, 5] },
+    { "id": 8,  "type": "Chao",  "position": [4, 0, 5] },
+    { "id": 9,  "type": "Chao",  "position": [5, 0, 5] },
+
+    { "id": 10, "type": "Queda", "position": [3, 4, 3] },
+    { "id": 11, "type": "Queda", "position": [4, 4, 3] },
+    { "id": 12, "type": "Queda", "position": [5, 4, 3] },
+    { "id": 13, "type": "Queda", "position": [3, 4, 4] },
+    { "id": 14, "type": "Queda", "position": [4, 4, 4] },
+    { "id": 15, "type": "Queda", "position": [5, 4, 4] },
+    { "id": 16, "type": "Queda", "position": [3, 4, 5] },
+    { "id": 17, "type": "Queda", "position": [4, 4, 5] },
+    { "id": 18, "type": "Queda", "position": [5, 4, 5] },
+
+    { "id": 19, "type": "Queda", "position": [3, 8, 3] },
+    { "id": 20, "type": "Queda", "position": [4, 8, 3] },
+    { "id": 21, "type": "Queda", "position": [5, 8, 3] },
+    { "id": 22, "type": "Queda", "position": [3, 8, 4] },
+    { "id": 23, "type": "Queda", "position": [4, 8, 4] },
+    { "id": 24, "type": "Queda", "position": [5, 8, 4] },
+    { "id": 25, "type": "Queda", "position": [3, 8, 5] },
+    { "id": 26, "type": "Queda", "position": [4, 8, 5] },
+    { "id": 27, "type": "Queda", "position": [5, 8, 5] },
+
+    { "id": 28, "type": "Queda", "position": [3, 12, 3] },
+    { "id": 29, "type": "Queda", "position": [4, 12, 3] },
+    { "id": 30, "type": "Queda", "position": [5, 12, 3] },
+    { "id": 31, "type": "Queda", "position": [3, 12, 4] },
+    { "id": 32, "type": "Queda", "position": [4, 12, 4] },
+    { "id": 33, "type": "Queda", "position": [5, 12, 4] },
+    { "id": 34, "type": "Queda", "position": [3, 12, 5] },
+    { "id": 35, "type": "Queda", "position": [4, 12, 5] },
+    { "id": 36, "type": "Queda", "position": [5, 12, 5] }
+  ]
+}

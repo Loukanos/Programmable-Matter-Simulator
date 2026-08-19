@@ -1,0 +1,69 @@
+<!--
+2026-06-04 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+-->
+<!--
+2026-06-04 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+-->
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="SimulationUI.uss" />
+    <ui:VisualElement name="root" class="root" picking-mode="Ignore">
+        <ui:VisualElement name="statsPanel" class="stats-panel" picking-mode="Ignore">
+            <ui:Label name="movementsLabel" text="Movimentos: 0" class="stats-label" />
+            <ui:Label name="fpsLabel" text="FPS: 0" class="stats-label" />
+            <ui:Label name="timeLabel" text="Tempo decorrido: 0.0s" class="stats-label" />
+            <ui:Label name="cyclesLabel" text="Ciclos: 0" class="stats-label" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="systemBar" class="system-bar" picking-mode="Ignore">
+            <ui:VisualElement name="fullscreenButton" tooltip="Tela Cheia" class="sys-button fullscreen-sys-button">
+                <ui:VisualElement class="icon-fullscreen" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="quitButton" tooltip="Sair" class="sys-button quit-sys-button">
+                <ui:VisualElement class="icon-quit" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="topBar" class="top-bar" picking-mode="Ignore">
+            <ui:VisualElement name="runButton" tooltip="Rodar" class="ctrl-button run-button">
+                <ui:VisualElement class="icon-play" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="pauseButton" tooltip="Pausar" class="ctrl-button pause-button">
+                <ui:VisualElement class="icon-pause" picking-mode="Ignore">
+                    <ui:VisualElement class="pause-bar" picking-mode="Ignore" />
+                    <ui:VisualElement class="pause-bar" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="stopButton" tooltip="Encerrar" class="ctrl-button stop-button">
+                <ui:VisualElement class="icon-stop" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="filePanel" class="file-panel">
+            <ui:Label text="Arquivos JSON" class="panel-title" />
+
+            <ui:Label text="Cenário" class="field-label" />
+            <ui:Button name="scenarioButton" text="Selecionar cenário..." class="file-button" />
+            <ui:Label name="scenarioPathLabel" text="(padrão)" class="path-label" />
+
+            <ui:Label text="Comportamento" class="field-label" />
+            <ui:Button name="behaviorButton" text="Selecionar comportamento..." class="file-button" />
+            <ui:Label name="behaviorPathLabel" text="(padrão)" class="path-label" />
+
+            <ui:Button name="loadButton" text="Carregar simulação" class="load-button" />
+            <ui:Label name="statusLabel" text="" class="status-label" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="quitPopup" class="popup-overlay" picking-mode="Position">
+            <ui:VisualElement class="popup-dialog">
+                <ui:Label text="Deseja realmente sair?" class="popup-title" />
+                <ui:VisualElement class="popup-buttons">
+                    <ui:Button name="confirmQuitButton" text="Sair" class="popup-button confirm-button" />
+                    <ui:Button name="cancelQuitButton" text="Cancelar" class="popup-button cancel-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

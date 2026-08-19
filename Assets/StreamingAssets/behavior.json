@@ -1,0 +1,31 @@
+{
+  "Chao": {
+    "onInit": [
+      { "actions": ["setColor('#555555')"] }
+    ],
+    "onStep": []
+  },
+  "Queda": {
+    "onInit": [
+      {
+        "actions": [
+          "setState('pousou', false)",
+          "setColor('#3399FF')"
+        ]
+      }
+    ],
+    "onStep": [
+      {
+        "condition": "hasNeighbor('Y-') And checkState('pousou', '==', false)",
+        "actions": [
+          "setState('pousou', true)",
+          "setColor('#FF6600')"
+        ]
+      },
+      {
+        "condition": "Not hasNeighbor('Y-') And checkState('pousou', '==', false)",
+        "actions": ["move('Y-')"]
+      }
+    ]
+  }
+}
