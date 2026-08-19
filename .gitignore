@@ -127,3 +127,5 @@ InitTestScene*.unity*
 # Unity Editor crash-recovery snapshots — not source, safe to discard.
 /[Aa]ssets/_Recovery/
 /[Aa]ssets/_Recovery.meta
+
+/CLAUDE.md
