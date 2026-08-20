@@ -94,7 +94,23 @@ namespace ParticleSim.SimulationEngine
             object current = particle.GetInternalState(key);
             object target = ParseValue(args[2]);
 
-            if (op != "==") return false;
+            switch (op)
+            {
+                case "==": return AreEqual(current, target);
+                case "!=": return !AreEqual(current, target);
+                case ">":
+                case "<":
+                case ">=":
+                case "<=":
+                    return CompareValues(current, target, op);
+                default:
+                    Debug.LogWarning($"[ConditionEvaluator] Operador de comparação desconhecido: {op}");
+                    return false;
+            }
+        }
+
+        private static bool AreEqual(object current, object target)
+        {
             if (current == null) return target == null;
             if (target == null) return false;
 
@@ -104,6 +120,28 @@ namespace ParticleSim.SimulationEngine
             if (current.Equals(target)) return true;
 
             return current.ToString().Trim().Equals(target.ToString().Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        // >, <, >=, <= comparam numericamente quando ambos os lados são
+        // números; caso contrário caem para comparação lexicográfica de
+        // strings (ordinal, case-insensitive).
+        private static bool CompareValues(object current, object target, string op)
+        {
+            if (current == null || target == null) return false;
+
+            int comparison = IsNumeric(current) && IsNumeric(target)
+                ? Convert.ToDouble(current, CultureInfo.InvariantCulture)
+                    .CompareTo(Convert.ToDouble(target, CultureInfo.InvariantCulture))
+                : string.Compare(current.ToString(), target.ToString(), StringComparison.OrdinalIgnoreCase);
+
+            switch (op)
+            {
+                case ">": return comparison > 0;
+                case "<": return comparison < 0;
+                case ">=": return comparison >= 0;
+                case "<=": return comparison <= 0;
+                default: return false;
+            }
         }
 
         private static string[] SplitByOperator(string expr, string op) =>
