@@ -75,10 +75,18 @@ namespace ParticleSim.SimulationEngine
             var desiredPositions = new Dictionary<Particle, Vector3Int>();
             foreach (Particle particle in _particleManager.Particles)
             {
-                desiredPositions[particle] = _behaviors != null &&
-                    _behaviors.TryGetValue(particle.Type, out TypeBehavior behavior)
-                        ? ProcessActions(particle, behavior.onStep, isOnInit: false)
-                        : particle.GridPosition;
+                Vector3Int position = particle.GridPosition;
+                if (_behaviors != null && _behaviors.TryGetValue(particle.Type, out TypeBehavior behavior))
+                {
+                    position = ProcessActions(particle, behavior.onStep, isOnInit: false, startPosition: position);
+
+                    foreach (OnTouchEvent touchEvent in behavior.onTouch)
+                    {
+                        if (!ConditionEvaluator.HasNeighbor(particle, _particleManager, touchEvent.direction)) continue;
+                        position = ProcessActions(particle, touchEvent.blocks, isOnInit: false, startPosition: position);
+                    }
+                }
+                desiredPositions[particle] = position;
             }
  
             Dictionary<Particle, Vector3Int> finalPositions = ResolveCollisions(desiredPositions);
@@ -101,16 +109,17 @@ namespace ParticleSim.SimulationEngine
             CheckStopConditions();
         }
  
-        private Vector3Int ProcessActions(Particle particle, List<ActionBlock> blocks, bool isOnInit)
+        private Vector3Int ProcessActions(Particle particle, List<ActionBlock> blocks, bool isOnInit,
+            Vector3Int? startPosition = null)
         {
-            Vector3Int position = particle.GridPosition;
+            Vector3Int position = startPosition ?? particle.GridPosition;
             if (blocks == null) return position;
- 
+
             foreach (ActionBlock block in blocks)
             {
                 if (block?.actions == null) continue;
                 if (!ConditionEvaluator.Evaluate(block.condition, particle, _particleManager)) continue;
- 
+
                 foreach (string action in block.actions)
                 {
                     if (string.IsNullOrWhiteSpace(action)) continue;

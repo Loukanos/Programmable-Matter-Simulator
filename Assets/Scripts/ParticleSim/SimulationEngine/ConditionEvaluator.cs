@@ -64,24 +64,54 @@ namespace ParticleSim.SimulationEngine
         {
             string arg = ExtractArgument(expr);
             if (string.IsNullOrEmpty(arg)) return false;
-            arg = arg.Trim('\'', '\"');
+            return HasNeighbor(particle, grid, arg);
+        }
 
-            Vector3Int delta;
-            switch (arg.ToUpperInvariant())
+        private static readonly Vector3Int[] AllDirectionDeltas =
+        {
+            new(1, 0, 0), new(-1, 0, 0),
+            new(0, 1, 0), new(0, -1, 0),
+            new(0, 0, 1), new(0, 0, -1),
+        };
+
+        /// <summary>
+        /// Verifica contato com um vizinho. Com <paramref name="direction"/>
+        /// informado (X+, X-, Y+, Y-, Z+ ou Z-), checa apenas aquela face;
+        /// caso contrário, checa as seis faces (usado por onTouch sem
+        /// direção específica).
+        /// </summary>
+        public static bool HasNeighbor(Particle particle, IGridQuery grid, string direction = null)
+        {
+            if (string.IsNullOrWhiteSpace(direction))
             {
-                case "X+": delta = new Vector3Int(1, 0, 0); break;
-                case "X-": delta = new Vector3Int(-1, 0, 0); break;
-                case "Y+": delta = new Vector3Int(0, 1, 0); break;
-                case "Y-": delta = new Vector3Int(0, -1, 0); break;
-                case "Z+": delta = new Vector3Int(0, 0, 1); break;
-                case "Z-": delta = new Vector3Int(0, 0, -1); break;
-                default:
-                    Debug.LogWarning($"[ConditionEvaluator] Direção de vizinhança desconhecida: {arg}");
-                    return false;
+                foreach (Vector3Int d in AllDirectionDeltas)
+                    if (grid.TryGetParticleAt(grid.ApplyBoundary(particle.GridPosition + d), out _))
+                        return true;
+                return false;
+            }
+
+            if (!TryParseDirection(direction, out Vector3Int delta))
+            {
+                Debug.LogWarning($"[ConditionEvaluator] Direção de vizinhança desconhecida: {direction}");
+                return false;
             }
 
             Vector3Int neighborPos = grid.ApplyBoundary(particle.GridPosition + delta);
             return grid.TryGetParticleAt(neighborPos, out _);
+        }
+
+        private static bool TryParseDirection(string arg, out Vector3Int delta)
+        {
+            switch (arg.Trim('\'', '\"').ToUpperInvariant())
+            {
+                case "X+": delta = new Vector3Int(1, 0, 0); return true;
+                case "X-": delta = new Vector3Int(-1, 0, 0); return true;
+                case "Y+": delta = new Vector3Int(0, 1, 0); return true;
+                case "Y-": delta = new Vector3Int(0, -1, 0); return true;
+                case "Z+": delta = new Vector3Int(0, 0, 1); return true;
+                case "Z-": delta = new Vector3Int(0, 0, -1); return true;
+                default: delta = Vector3Int.zero; return false;
+            }
         }
 
         private static bool EvaluateCheckState(string expr, Particle particle)
