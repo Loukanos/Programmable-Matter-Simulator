@@ -221,7 +221,7 @@ namespace ParticleSim.SimulationEngine
             return valStr;
         }
 
-        private static bool IsNumeric(object obj) =>
+        public static bool IsNumeric(object obj) =>
             obj is sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;
     }
 }

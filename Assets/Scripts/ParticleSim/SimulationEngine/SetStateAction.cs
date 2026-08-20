@@ -1,11 +1,23 @@
+using System.Globalization;
+
 namespace ParticleSim.SimulationEngine
 {
     public static class SetStateAction
     {
-        public static bool TryParse(string action, out string key, out object value)
+        /// <summary>
+        /// Parses a setState('key', value) action. When value is an unquoted
+        /// numeric literal prefixed with '+' or '-' (e.g. +5, -3.2), it is
+        /// always treated as a relative increment/decrement (isIncrement =
+        /// true, value = the signed delta) rather than an absolute
+        /// assignment — there is no syntax for assigning a negative literal
+        /// via setState. Applying the delta to the particle's current state
+        /// is the caller's responsibility (SimulationEngine).
+        /// </summary>
+        public static bool TryParse(string action, out string key, out object value, out bool isIncrement)
         {
             key = null;
             value = null;
+            isIncrement = false;
 
             if (string.IsNullOrEmpty(action))
                 return false;
@@ -20,16 +32,29 @@ namespace ParticleSim.SimulationEngine
                 return false;
 
             string inner = a.Substring(open + 1, close - open - 1).Trim();
-            
+
             // Split by comma, but handle quoted strings
             string[] parts = SplitArguments(inner);
             if (parts.Length < 2)
                 return false;
 
             key = parts[0].Trim().Trim('\'', '\"');
-            string valStr = parts[1].Trim().Trim('\'', '\"');
-            
-            value = ConditionEvaluator.ParseValue(valStr);
+            string rawArg = parts[1].Trim();
+
+            bool isQuoted = rawArg.Length >= 2 &&
+                ((rawArg[0] == '\'' && rawArg[^1] == '\'') || (rawArg[0] == '"' && rawArg[^1] == '"'));
+
+            if (!isQuoted
+                && rawArg.Length > 1
+                && (rawArg[0] == '+' || rawArg[0] == '-')
+                && double.TryParse(rawArg, NumberStyles.Float, CultureInfo.InvariantCulture, out double delta))
+            {
+                value = delta;
+                isIncrement = true;
+                return true;
+            }
+
+            value = ConditionEvaluator.ParseValue(rawArg);
             return true;
         }
 

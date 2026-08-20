@@ -135,9 +135,12 @@ namespace ParticleSim.SimulationEngine
                         if (!isOnInit)
                             position = _particleManager.ApplyBoundary(position + delta);
                     }
-                    else if (SetStateAction.TryParse(action, out string key, out object value))
+                    else if (SetStateAction.TryParse(action, out string key, out object value, out bool isIncrement))
                     {
-                        particle.SetInternalState(key, value);
+                        if (isIncrement)
+                            ApplyStateIncrement(particle, key, (double)value);
+                        else
+                            particle.SetInternalState(key, value);
                     }
                     else if (SetColorAction.TryParse(action, out Color color))
                     {
@@ -151,7 +154,32 @@ namespace ParticleSim.SimulationEngine
             }
             return position;
         }
- 
+
+        /// <summary>
+        /// Aplica um setState('key', +N/-N): soma delta ao valor numérico
+        /// atual de key (tratando ausência ou valor não-numérico como 0
+        /// para permitir inicializar contadores direto), exceto quando key
+        /// já existe com um valor não-numérico — nesse caso a ação é
+        /// ignorada com um aviso, sem derrubar a simulação.
+        /// </summary>
+        private static void ApplyStateIncrement(Particle particle, string key, double delta)
+        {
+            object current = particle.GetInternalState(key);
+            double baseValue = 0.0;
+
+            if (current != null)
+            {
+                if (!ConditionEvaluator.IsNumeric(current))
+                {
+                    Debug.LogWarning($"[SimulationEngine] setState incremento/decremento ignorado: '{key}' possui valor não-numérico ({current}).");
+                    return;
+                }
+                baseValue = Convert.ToDouble(current, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            particle.SetInternalState(key, baseValue + delta);
+        }
+
         private Dictionary<Particle, Vector3Int> ResolveCollisions(Dictionary<Particle, Vector3Int> desiredPositions)
         {
             var finalPositions = new Dictionary<Particle, Vector3Int>();
