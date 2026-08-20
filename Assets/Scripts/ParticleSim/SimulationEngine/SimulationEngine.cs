@@ -115,7 +115,11 @@ namespace ParticleSim.SimulationEngine
                 {
                     if (string.IsNullOrWhiteSpace(action)) continue;
  
-                    if (MoveAction.TryParse(action, out Vector3Int delta))
+                    if (WaitAction.IsWait(action))
+                    {
+                        // Nenhuma ação: mantém posição e estado inalterados.
+                    }
+                    else if (MoveAction.TryParse(action, out Vector3Int delta))
                     {
                         // Movimentos declarados em onInit não deslocam a partícula
                         // (mesmo comportamento do SimulationManager original).
