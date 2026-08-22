@@ -58,7 +58,11 @@ namespace ParticleSim.SimulationEngine
             foreach (Particle particle in _particleManager.Particles)
             {
                 if (_behaviors != null && _behaviors.TryGetValue(particle.Type, out TypeBehavior behavior))
-                    ProcessActions(particle, behavior.onInit, isOnInit: true);
+                {
+                    bool moveConsumed = false;
+                    bool anyActivity = false;
+                    ProcessActions(particle, behavior.onInit, isOnInit: true, ref moveConsumed, ref anyActivity);
+                }
             }
         }
  
@@ -73,17 +77,19 @@ namespace ParticleSim.SimulationEngine
             _particleManager.RefreshGridLookup();
  
             var desiredPositions = new Dictionary<Particle, Vector3Int>();
+            bool anyActivity = false;
             foreach (Particle particle in _particleManager.Particles)
             {
                 Vector3Int position = particle.GridPosition;
+                bool moveConsumed = false;
                 if (_behaviors != null && _behaviors.TryGetValue(particle.Type, out TypeBehavior behavior))
                 {
-                    position = ProcessActions(particle, behavior.onStep, isOnInit: false, startPosition: position);
+                    position = ProcessActions(particle, behavior.onStep, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
 
                     foreach (OnTouchEvent touchEvent in behavior.onTouch)
                     {
                         if (!ConditionEvaluator.HasNeighbor(particle, _particleManager, touchEvent.direction)) continue;
-                        position = ProcessActions(particle, touchEvent.blocks, isOnInit: false, startPosition: position);
+                        position = ProcessActions(particle, touchEvent.blocks, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
                     }
                 }
                 desiredPositions[particle] = position;
@@ -103,14 +109,18 @@ namespace ParticleSim.SimulationEngine
             }
  
             CurrentCycle++;
-            _idleCycles = anyMoved ? 0 : _idleCycles + 1;
+            // Ociosidade é resetada por qualquer atividade capaz de modificar o
+            // ambiente: movimento efetivamente aplicado (pós-resolução de
+            // colisões), setState ou setColor executados com sucesso — não é
+            // necessário comparar valor novo vs. anterior (seção 2.2.3 do TCC).
+            _idleCycles = (anyMoved || anyActivity) ? 0 : _idleCycles + 1;
  
             OnCycleCompleted?.Invoke(CurrentCycle, anyMoved);
             CheckStopConditions();
         }
  
         private Vector3Int ProcessActions(Particle particle, List<ActionBlock> blocks, bool isOnInit,
-            Vector3Int? startPosition = null)
+            ref bool moveConsumed, ref bool anyActivity, Vector3Int? startPosition = null)
         {
             Vector3Int position = startPosition ?? particle.GridPosition;
             if (blocks == null) return position;
@@ -123,7 +133,7 @@ namespace ParticleSim.SimulationEngine
                 foreach (string action in block.actions)
                 {
                     if (string.IsNullOrWhiteSpace(action)) continue;
- 
+
                     if (WaitAction.IsWait(action))
                     {
                         // Nenhuma ação: mantém posição e estado inalterados.
@@ -131,20 +141,34 @@ namespace ParticleSim.SimulationEngine
                     else if (MoveAction.TryParse(action, out Vector3Int delta))
                     {
                         // Movimentos declarados em onInit não deslocam a partícula
-                        // (mesmo comportamento do SimulationManager original).
-                        if (!isOnInit)
+                        // (também barrado em tempo de carregamento por
+                        // BehaviorLoader). Apenas o primeiro move() por
+                        // partícula por ciclo é aplicado; os demais, em
+                        // qualquer bloco/evento subsequente do mesmo ciclo,
+                        // são descartados.
+                        if (!isOnInit && !moveConsumed)
+                        {
                             position = _particleManager.ApplyBoundary(position + delta);
+                            moveConsumed = true;
+                        }
                     }
                     else if (SetStateAction.TryParse(action, out string key, out object value, out bool isIncrement))
                     {
                         if (isIncrement)
-                            ApplyStateIncrement(particle, key, (double)value);
+                        {
+                            if (ApplyStateIncrement(particle, key, (double)value))
+                                anyActivity = true;
+                        }
                         else
+                        {
                             particle.SetInternalState(key, value);
+                            anyActivity = true;
+                        }
                     }
                     else if (SetColorAction.TryParse(action, out Color color))
                     {
                         OnColorChanged?.Invoke(particle, color);
+                        anyActivity = true;
                     }
                     else
                     {
@@ -160,9 +184,11 @@ namespace ParticleSim.SimulationEngine
         /// atual de key (tratando ausência ou valor não-numérico como 0
         /// para permitir inicializar contadores direto), exceto quando key
         /// já existe com um valor não-numérico — nesse caso a ação é
-        /// ignorada com um aviso, sem derrubar a simulação.
+        /// ignorada com um aviso, sem derrubar a simulação. Retorna se o
+        /// incremento foi de fato aplicado (usado para contabilizar
+        /// atividade no critério de ociosidade).
         /// </summary>
-        private static void ApplyStateIncrement(Particle particle, string key, double delta)
+        private static bool ApplyStateIncrement(Particle particle, string key, double delta)
         {
             object current = particle.GetInternalState(key);
             double baseValue = 0.0;
@@ -172,12 +198,13 @@ namespace ParticleSim.SimulationEngine
                 if (!ConditionEvaluator.IsNumeric(current))
                 {
                     Debug.LogWarning($"[SimulationEngine] setState incremento/decremento ignorado: '{key}' possui valor não-numérico ({current}).");
-                    return;
+                    return false;
                 }
                 baseValue = Convert.ToDouble(current, System.Globalization.CultureInfo.InvariantCulture);
             }
 
             particle.SetInternalState(key, baseValue + delta);
+            return true;
         }
 
         private Dictionary<Particle, Vector3Int> ResolveCollisions(Dictionary<Particle, Vector3Int> desiredPositions)

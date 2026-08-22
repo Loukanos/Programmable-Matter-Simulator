@@ -42,7 +42,18 @@ namespace ParticleSim.InputValidation
 
                 var result = new Dictionary<string, TypeBehavior>();
                 foreach (KeyValuePair<string, JObject> kvp in raw)
-                    result[kvp.Key] = ParseTypeBehavior(kvp.Value);
+                {
+                    TypeBehavior behavior = ParseTypeBehavior(kvp.Value);
+
+                    string invalidAction = FindMoveActionInOnInit(behavior.onInit);
+                    if (invalidAction != null)
+                    {
+                        Debug.LogError($"[BehaviorLoader] Ação de movimento não é permitida em onInit: tipo '{kvp.Key}', ação '{invalidAction}'.");
+                        return null;
+                    }
+
+                    result[kvp.Key] = behavior;
+                }
 
                 return result;
             }
@@ -51,6 +62,31 @@ namespace ParticleSim.InputValidation
                 Debug.LogError($"[BehaviorLoader] Error reading behavior file: {e.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Movimento não é permitido em onInit (seção 2.2.3 do TCC). Retorna
+        /// a primeira ação de movimento encontrada, ou null se nenhuma
+        /// existir. Reconhece o mesmo prefixo que MoveAction.TryParse (a
+        /// checagem não é feita chamando MoveAction diretamente para não
+        /// criar uma dependência de InputValidation sobre SimulationEngine).
+        /// </summary>
+        private static string FindMoveActionInOnInit(List<ActionBlock> onInitBlocks)
+        {
+            if (onInitBlocks == null) return null;
+
+            foreach (ActionBlock block in onInitBlocks)
+            {
+                if (block?.actions == null) continue;
+                foreach (string action in block.actions)
+                {
+                    if (string.IsNullOrWhiteSpace(action)) continue;
+                    if (action.Trim().StartsWith("move", StringComparison.OrdinalIgnoreCase))
+                        return action;
+                }
+            }
+
+            return null;
         }
 
         private static TypeBehavior ParseTypeBehavior(JObject obj)
