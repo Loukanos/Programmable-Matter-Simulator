@@ -20,6 +20,10 @@ namespace ParticleSim.InputValidation
         private static readonly Regex OnTouchKeyRegex =
             new(@"^onTouch\s*(?:\(\s*(.*?)\s*\))?$", RegexOptions.IgnoreCase);
 
+        // Matches "onMessage" or "onMessage(X+)", same convention as onTouch.
+        private static readonly Regex OnMessageKeyRegex =
+            new(@"^onMessage\s*(?:\(\s*(.*?)\s*\))?$", RegexOptions.IgnoreCase);
+
         public static Dictionary<string, TypeBehavior> LoadFromFile(string absolutePath)
         {
             Debug.Log($"[BehaviorLoader] Attempting to load behavior from: {absolutePath}");
@@ -110,14 +114,29 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                Match match = OnTouchKeyRegex.Match(name);
-                if (match.Success)
+                Match touchMatch = OnTouchKeyRegex.Match(name);
+                if (touchMatch.Success)
                 {
-                    string direction = match.Groups[1].Success
-                        ? match.Groups[1].Value.Trim().Trim('\'', '\"')
+                    string direction = touchMatch.Groups[1].Success
+                        ? touchMatch.Groups[1].Value.Trim().Trim('\'', '\"')
                         : null;
 
                     behavior.onTouch.Add(new OnTouchEvent
+                    {
+                        direction = string.IsNullOrWhiteSpace(direction) ? null : direction,
+                        blocks = prop.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>(),
+                    });
+                    continue;
+                }
+
+                Match messageMatch = OnMessageKeyRegex.Match(name);
+                if (messageMatch.Success)
+                {
+                    string direction = messageMatch.Groups[1].Success
+                        ? messageMatch.Groups[1].Value.Trim().Trim('\'', '\"')
+                        : null;
+
+                    behavior.onMessage.Add(new OnMessageEvent
                     {
                         direction = string.IsNullOrWhiteSpace(direction) ? null : direction,
                         blocks = prop.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>(),

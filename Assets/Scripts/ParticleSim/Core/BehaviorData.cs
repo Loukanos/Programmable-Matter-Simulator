@@ -26,17 +26,36 @@ namespace ParticleSim.Core
     }
 
     /// <summary>
+    /// One "onMessage"/"onMessage(DIR)" event entry: the blocks that run
+    /// while the particle's current-cycle inbox holds at least one message.
+    /// Direction is null for a bare "onMessage" (a message from any origin
+    /// direction triggers it), or one of X+/X-/Y+/Y-/Z+/Z- when the event key
+    /// is parameterized, matching against Message.Direction. Mirrors
+    /// OnTouchEvent's shape; kept as a separate type since onTouch and
+    /// onMessage are distinct triggers even though their JSON shape and
+    /// per-cycle evaluation point (alongside onStep, never during onInit)
+    /// coincide.
+    /// </summary>
+    public class OnMessageEvent
+    {
+        public string direction;
+        public List<ActionBlock> blocks = new();
+    }
+
+    /// <summary>
     /// Behavior of a single particle type.
-    /// Supports "onInit" (once at start), "onStep" (every cycle) and
+    /// Supports "onInit" (once at start), "onStep" (every cycle),
     /// "onTouch"/"onTouch(DIR)" (every cycle the particle is in contact with
-    /// a neighbor). Parsing of the onTouch key variants happens in
-    /// BehaviorLoader, since it is JSON-shape-specific.
+    /// a neighbor) and "onMessage"/"onMessage(DIR)" (every cycle the
+    /// particle's inbox holds a message). Parsing of the onTouch/onMessage
+    /// key variants happens in BehaviorLoader, since it is JSON-shape-specific.
     /// </summary>
     public class TypeBehavior
     {
         public List<ActionBlock> onInit = new();
         public List<ActionBlock> onStep = new();
         public List<OnTouchEvent> onTouch = new();
+        public List<OnMessageEvent> onMessage = new();
     }
 
     /// <summary>

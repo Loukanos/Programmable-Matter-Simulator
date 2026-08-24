@@ -52,6 +52,8 @@ namespace ParticleSim.SimulationEngine
                 return EvaluateHasNeighbor(expr, particle, grid);
             if (expr.StartsWith("checkState", StringComparison.OrdinalIgnoreCase))
                 return EvaluateCheckState(expr, particle);
+            if (expr.StartsWith("checkMessage", StringComparison.OrdinalIgnoreCase))
+                return EvaluateCheckMessage(expr, particle);
 
             if (expr.Equals("true", StringComparison.OrdinalIgnoreCase)) return true;
             if (expr.Equals("false", StringComparison.OrdinalIgnoreCase)) return false;
@@ -100,7 +102,10 @@ namespace ParticleSim.SimulationEngine
             return grid.TryGetParticleAt(neighborPos, out _);
         }
 
-        private static bool TryParseDirection(string arg, out Vector3Int delta)
+        /// <summary>All six face labels, e.g. for sendMessage's directionless broadcast form.</summary>
+        public static readonly string[] AllDirectionLabels = { "X+", "X-", "Y+", "Y-", "Z+", "Z-" };
+
+        public static bool TryParseDirection(string arg, out Vector3Int delta)
         {
             switch (arg.Trim('\'', '\"').ToUpperInvariant())
             {
@@ -112,6 +117,45 @@ namespace ParticleSim.SimulationEngine
                 case "Z-": delta = new Vector3Int(0, 0, -1); return true;
                 default: delta = Vector3Int.zero; return false;
             }
+        }
+
+        /// <summary>
+        /// Opposite direction (X+ ↔ X-, Y+ ↔ Y-, Z+ ↔ Z-). Used to derive the
+        /// origin direction stored on a Message from the direction it was
+        /// sent with: sendMessage(dir) points from the Sender to the
+        /// Recipient, but Message.Direction stores the inverse — the
+        /// Sender's direction as seen from the Recipient (see onMessage(dir)).
+        /// </summary>
+        public static string OppositeDirection(string direction)
+        {
+            switch (direction.Trim('\'', '\"').ToUpperInvariant())
+            {
+                case "X+": return "X-";
+                case "X-": return "X+";
+                case "Y+": return "Y-";
+                case "Y-": return "Y+";
+                case "Z+": return "Z-";
+                case "Z-": return "Z+";
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// Checks the particle's current-cycle inbox. With
+        /// <paramref name="direction"/> given, restricts to messages whose
+        /// origin direction (Message.Direction) matches; otherwise (bare
+        /// onMessage), any message in the inbox triggers it.
+        /// </summary>
+        public static bool HasMessage(Particle particle, string direction = null)
+        {
+            if (string.IsNullOrWhiteSpace(direction))
+                return particle.Inbox.Count > 0;
+
+            string normalized = direction.Trim('\'', '\"').ToUpperInvariant();
+            foreach (Message message in particle.Inbox)
+                if (string.Equals(message.Direction, normalized, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
         }
 
         private static bool EvaluateCheckState(string expr, Particle particle)
@@ -137,6 +181,20 @@ namespace ParticleSim.SimulationEngine
                     Debug.LogWarning($"[ConditionEvaluator] Operador de comparação desconhecido: {op}");
                     return false;
             }
+        }
+
+        // checkMessage has no operator parameter like checkState: it is
+        // always a simple equality comparison against Message.Content.
+        private static bool EvaluateCheckMessage(string expr, Particle particle)
+        {
+            string arg = ExtractArgument(expr);
+            if (arg == null) return false;
+
+            object target = ParseValue(arg);
+            foreach (Message message in particle.Inbox)
+                if (AreEqual(message.Content, target))
+                    return true;
+            return false;
         }
 
         private static bool AreEqual(object current, object target)
@@ -185,7 +243,7 @@ namespace ParticleSim.SimulationEngine
             return expr.Substring(open + 1, close - open - 1).Trim();
         }
 
-        private static string[] ExtractArguments(string expr)
+        public static string[] ExtractArguments(string expr)
         {
             string inner = ExtractArgument(expr);
             if (inner == null) return Array.Empty<string>();

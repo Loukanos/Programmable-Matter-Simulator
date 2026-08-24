@@ -27,7 +27,13 @@ namespace ParticleSim.SimulationEngine
         public int IdleCyclesLimit { get; set; } = 5;
  
         private int _idleCycles;
- 
+
+        // Messages queued by sendMessage this cycle, keyed by recipient, not
+        // yet visible in the recipient's Inbox. Delivered (moved into each
+        // recipient's Inbox) at the start of the NEXT Step() call — delivery
+        // is always one full cycle after the send, never same-cycle.
+        private readonly Dictionary<Particle, List<Message>> _pendingMessages = new();
+
         /// <summary>Disparado ao final de cada ciclo, com o número do ciclo e se houve movimento.</summary>
         public event Action<int, bool> OnCycleCompleted;
         /// <summary>Disparado quando uma partícula muda de posição (já aplicada ao modelo).</summary>
@@ -36,6 +42,10 @@ namespace ParticleSim.SimulationEngine
         public event Action<Particle, Color> OnColorChanged;
         /// <summary>Disparado quando a simulação encerra por um critério de parada.</summary>
         public event Action<string> OnSimulationFinished;
+        /// <summary>Fired when sendMessage creates a Message, queuing it for delivery (not yet visible to the recipient).</summary>
+        public event Action<Message> OnMessageSent;
+        /// <summary>Fired when a Message becomes visible in its recipient's Inbox, one cycle after it was sent.</summary>
+        public event Action<Message> OnMessageDelivered;
  
         public SimulationEngine(ParticleManager.ParticleManager particleManager)
         {
@@ -50,6 +60,7 @@ namespace ParticleSim.SimulationEngine
             _idleCycles = 0;
             IsFinished = false;
             IsRunning = false;
+            _pendingMessages.Clear();
         }
  
         public void ExecuteOnInit()
@@ -73,7 +84,8 @@ namespace ParticleSim.SimulationEngine
         public void Step()
         {
             if (IsFinished || !IsRunning) return;
- 
+
+            DeliverPendingMessages();
             _particleManager.RefreshGridLookup();
  
             var desiredPositions = new Dictionary<Particle, Vector3Int>();
@@ -90,6 +102,12 @@ namespace ParticleSim.SimulationEngine
                     {
                         if (!ConditionEvaluator.HasNeighbor(particle, _particleManager, touchEvent.direction)) continue;
                         position = ProcessActions(particle, touchEvent.blocks, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
+                    }
+
+                    foreach (OnMessageEvent messageEvent in behavior.onMessage)
+                    {
+                        if (!ConditionEvaluator.HasMessage(particle, messageEvent.direction)) continue;
+                        position = ProcessActions(particle, messageEvent.blocks, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
                     }
                 }
                 desiredPositions[particle] = position;
@@ -170,6 +188,11 @@ namespace ParticleSim.SimulationEngine
                         OnColorChanged?.Invoke(particle, color);
                         anyActivity = true;
                     }
+                    else if (SendMessageAction.TryParse(action, out string sendDirection, out object content))
+                    {
+                        if (SendMessage(particle, sendDirection, content))
+                            anyActivity = true;
+                    }
                     else
                     {
                         Debug.LogWarning($"[SimulationEngine] Ação não reconhecida: '{action}'");
@@ -205,6 +228,76 @@ namespace ParticleSim.SimulationEngine
 
             particle.SetInternalState(key, baseValue + delta);
             return true;
+        }
+
+        /// <summary>
+        /// Processes sendMessage(dir?, content): with a direction, sends only
+        /// to the neighbor occupying that face (no error if there is none,
+        /// same convention as hasNeighbor returning false); without a
+        /// direction, broadcasts a distinct Message to every occupied
+        /// neighbor across the six faces. Returns whether at least one
+        /// Message was actually created (used to count as activity for the
+        /// idle-cycle criterion).
+        /// </summary>
+        private bool SendMessage(Particle sender, string direction, object content)
+        {
+            if (!string.IsNullOrWhiteSpace(direction))
+                return TrySendTo(sender, direction, content);
+
+            bool anySent = false;
+            foreach (string dir in ConditionEvaluator.AllDirectionLabels)
+                anySent |= TrySendTo(sender, dir, content);
+            return anySent;
+        }
+
+        private bool TrySendTo(Particle sender, string direction, object content)
+        {
+            if (!ConditionEvaluator.TryParseDirection(direction, out Vector3Int delta))
+            {
+                Debug.LogWarning($"[SimulationEngine] sendMessage: unknown direction '{direction}'.");
+                return false;
+            }
+
+            Vector3Int neighborPos = _particleManager.ApplyBoundary(sender.GridPosition + delta);
+            if (!_particleManager.TryGetParticleAt(neighborPos, out Particle recipient))
+                return false;
+
+            // The Message stores the direction of the sender AS SEEN BY the
+            // recipient (the opposite of the direction it was sent with), so
+            // that recipient.onMessage(dir) can match against it.
+            string originDirection = ConditionEvaluator.OppositeDirection(direction);
+            var message = new Message(sender, recipient, content, originDirection);
+
+            if (!_pendingMessages.TryGetValue(recipient, out List<Message> queue))
+                _pendingMessages[recipient] = queue = new List<Message>();
+            queue.Add(message);
+
+            OnMessageSent?.Invoke(message);
+            return true;
+        }
+
+        /// <summary>
+        /// Start-of-cycle message handoff: clears every particle's inbox
+        /// from the previous cycle, then moves everything queued by last
+        /// cycle's sendMessage calls into the matching recipient's Inbox.
+        /// This is what makes delivery land exactly one cycle after the
+        /// send — never the same cycle it was queued in.
+        /// </summary>
+        private void DeliverPendingMessages()
+        {
+            foreach (Particle particle in _particleManager.Particles)
+                particle.ClearInbox();
+
+            foreach (KeyValuePair<Particle, List<Message>> pending in _pendingMessages)
+            {
+                foreach (Message message in pending.Value)
+                {
+                    pending.Key.ReceiveMessage(message);
+                    OnMessageDelivered?.Invoke(message);
+                }
+            }
+
+            _pendingMessages.Clear();
         }
 
         private Dictionary<Particle, Vector3Int> ResolveCollisions(Dictionary<Particle, Vector3Int> desiredPositions)
