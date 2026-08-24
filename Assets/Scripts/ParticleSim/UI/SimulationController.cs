@@ -24,7 +24,6 @@ namespace ParticleSim.UI
         [Header("Simulação")]
         public float stepInterval = 1f;
         public bool autoStart = true;
-        public BoundaryMode boundaryMode = BoundaryMode.Wrap;
 
         [Header("Visual")]
         public float cellSize = 1f;
@@ -55,10 +54,15 @@ namespace ParticleSim.UI
         public int CycleCount => _engine?.CurrentCycle ?? 0;
         public bool IsRunning => _engine?.IsRunning ?? false;
         public bool IsFinished => _engine?.IsFinished ?? false;
+        public int TotalCollisions => _metrics?.TotalCollisions ?? 0;
+        public int TotalInvalidMovements => _metrics?.TotalInvalidMovements ?? 0;
+        public double AverageStepTimeMs => _metrics?.AverageStepTimeMs ?? 0.0;
+        public float FrameRate => _metrics?.FrameRate ?? 0f;
+        public int TotalMessagesSent => _metrics?.TotalMessagesSent ?? 0;
+        public int TotalMessagesDelivered => _metrics?.TotalMessagesDelivered ?? 0;
 
         private void Start()
         {
-            _particleManager.BoundaryMode = boundaryMode;
             _engine = new SimulationEngine.SimulationEngine(_particleManager);
             _metrics = new MetricsCalculator.MetricsCalculator(_engine);
 
@@ -82,6 +86,11 @@ namespace ParticleSim.UI
 
         private void Update()
         {
+            // Frame rate reflects the app's render rate, not the simulation's
+            // run state, so it ticks even while paused/before Run is pressed
+            // (matches the previous SimulationUIController-owned behavior).
+            _metrics?.UpdateFrameRate(Time.unscaledDeltaTime);
+
             if (!IsRunning) return;
 
             _metrics.Tick(Time.deltaTime);
@@ -89,7 +98,11 @@ namespace ParticleSim.UI
             if (_timer >= stepInterval)
             {
                 _timer -= stepInterval;
+
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 _engine.Step();
+                stopwatch.Stop();
+                _metrics.RecordStepDuration(stopwatch.Elapsed.TotalSeconds);
             }
         }
 

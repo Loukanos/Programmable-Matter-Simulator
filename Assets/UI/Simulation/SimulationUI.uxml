@@ -11,9 +11,14 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     <ui:VisualElement name="root" class="root" picking-mode="Ignore">
         <ui:VisualElement name="statsPanel" class="stats-panel" picking-mode="Ignore">
             <ui:Label name="movementsLabel" text="Movimentos: 0" class="stats-label" />
+            <ui:Label name="collisionsLabel" text="Colisões: 0" class="stats-label" />
+            <ui:Label name="invalidMovementsLabel" text="Movimentos inválidos: 0" class="stats-label" />
             <ui:Label name="fpsLabel" text="FPS: 0" class="stats-label" />
             <ui:Label name="timeLabel" text="Tempo decorrido: 0.0s" class="stats-label" />
             <ui:Label name="cyclesLabel" text="Ciclos: 0" class="stats-label" />
+            <ui:Label name="stepTimeLabel" text="Tempo por ciclo: 0.0ms" class="stats-label" />
+            <ui:Label name="messagesSentLabel" text="Mensagens enviadas: 0" class="stats-label" />
+            <ui:Label name="messagesDeliveredLabel" text="Mensagens recebidas: 0" class="stats-label" />
         </ui:VisualElement>
 
         <ui:VisualElement name="systemBar" class="system-bar" picking-mode="Ignore">

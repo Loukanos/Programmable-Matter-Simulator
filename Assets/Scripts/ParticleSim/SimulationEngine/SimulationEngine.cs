@@ -46,6 +46,10 @@ namespace ParticleSim.SimulationEngine
         public event Action<Message> OnMessageSent;
         /// <summary>Fired when a Message becomes visible in its recipient's Inbox, one cycle after it was sent.</summary>
         public event Action<Message> OnMessageDelivered;
+        /// <summary>Fired once per particle whose valid move() intent (desired position differed from current) was cancelled by collision resolution because of another particle — either a shared-destination race or a target cell held by a non-mover.</summary>
+        public event Action<Particle> OnCollision;
+        /// <summary>Fired once per particle whose move() would have taken it outside the grid — the movement is cancelled and the particle stays at its original position.</summary>
+        public event Action<Particle> OnInvalidMovement;
  
         public SimulationEngine(ParticleManager.ParticleManager particleManager)
         {
@@ -166,7 +170,11 @@ namespace ParticleSim.SimulationEngine
                         // são descartados.
                         if (!isOnInit && !moveConsumed)
                         {
-                            position = _particleManager.ApplyBoundary(position + delta);
+                            Vector3Int desired = position + delta;
+                            Vector3Int bounded = _particleManager.ApplyBoundary(desired);
+                            if (bounded != desired)
+                                OnInvalidMovement?.Invoke(particle);
+                            position = bounded;
                             moveConsumed = true;
                         }
                     }
@@ -258,8 +266,11 @@ namespace ParticleSim.SimulationEngine
                 return false;
             }
 
-            Vector3Int neighborPos = _particleManager.ApplyBoundary(sender.GridPosition + delta);
-            if (!_particleManager.TryGetParticleAt(neighborPos, out Particle recipient))
+            // Not ApplyBoundary here — see ConditionEvaluator.HasNeighbor's
+            // comment: off-grid is "no neighbor", never clamped onto the
+            // sender's own cell.
+            Vector3Int neighborPos = sender.GridPosition + delta;
+            if (!_particleManager.IsInBounds(neighborPos) || !_particleManager.TryGetParticleAt(neighborPos, out Particle recipient))
                 return false;
 
             // The Message stores the direction of the sender AS SEEN BY the
@@ -304,10 +315,18 @@ namespace ParticleSim.SimulationEngine
         {
             var finalPositions = new Dictionary<Particle, Vector3Int>();
             var willMove = new Dictionary<Particle, bool>();
- 
+
             foreach (Particle p in _particleManager.Particles)
                 willMove[p] = desiredPositions[p] != p.GridPosition;
- 
+
+            // Snapshot of which particles had a genuine move intent, taken
+            // before any conflict resolution runs below. Compared against
+            // willMove's final state to detect collisions: a particle only
+            // counts if it actually wanted to move and got blocked because of
+            // another particle (shared-destination race or a stationary
+            // occupant), never a particle that simply didn't try to move.
+            var hadMoveIntent = new Dictionary<Particle, bool>(willMove);
+
             // Duas partículas não podem disputar a mesma célula de destino.
             var requestCount = new Dictionary<Vector3Int, int>();
             foreach (Vector3Int pos in desiredPositions.Values)
@@ -335,10 +354,14 @@ namespace ParticleSim.SimulationEngine
                     }
                 }
             } while (changed);
- 
+
             foreach (Particle p in _particleManager.Particles)
+            {
+                if (hadMoveIntent[p] && !willMove[p])
+                    OnCollision?.Invoke(p);
                 finalPositions[p] = willMove[p] ? desiredPositions[p] : p.GridPosition;
- 
+            }
+
             return finalPositions;
         }
  

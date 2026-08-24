@@ -87,8 +87,11 @@ namespace ParticleSim.SimulationEngine
             if (string.IsNullOrWhiteSpace(direction))
             {
                 foreach (Vector3Int d in AllDirectionDeltas)
-                    if (grid.TryGetParticleAt(grid.ApplyBoundary(particle.GridPosition + d), out _))
+                {
+                    Vector3Int neighborPos = particle.GridPosition + d;
+                    if (grid.IsInBounds(neighborPos) && grid.TryGetParticleAt(neighborPos, out _))
                         return true;
+                }
                 return false;
             }
 
@@ -98,8 +101,13 @@ namespace ParticleSim.SimulationEngine
                 return false;
             }
 
-            Vector3Int neighborPos = grid.ApplyBoundary(particle.GridPosition + delta);
-            return grid.TryGetParticleAt(neighborPos, out _);
+            // Note: intentionally NOT grid.ApplyBoundary — that clamps a
+            // beyond-the-edge position back onto the particle's OWN cell (see
+            // ApplyBoundary's doc comment), which would make TryGetParticleAt
+            // find the particle itself and report a false neighbor at every
+            // grid edge. Off-grid simply means no neighbor there.
+            Vector3Int target = particle.GridPosition + delta;
+            return grid.IsInBounds(target) && grid.TryGetParticleAt(target, out _);
         }
 
         /// <summary>All six face labels, e.g. for sendMessage's directionless broadcast form.</summary>

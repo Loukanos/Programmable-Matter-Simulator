@@ -19,8 +19,7 @@ namespace ParticleSim.ParticleManager
         private readonly Dictionary<Vector3Int, Particle> _gridLookup = new Dictionary<Vector3Int, Particle>();
  
         public Vector3Int GridSize { get; private set; }
-        public BoundaryMode BoundaryMode { get; set; } = BoundaryMode.Wrap;
- 
+
         public IReadOnlyList<Particle> Particles => _particles;
  
         /// <summary>
@@ -60,33 +59,28 @@ namespace ParticleSim.ParticleManager
         public bool TryGetParticleAt(Vector3Int position, out Particle particle) =>
             _gridLookup.TryGetValue(position, out particle);
  
+        /// <summary>
+        /// Clamps a target position to the grid bounds. Since every move()
+        /// changes exactly one axis by ±1, a position that lands outside the
+        /// grid is always exactly one cell past a boundary the particle was
+        /// already sitting on — clamping it therefore always resolves back to
+        /// the particle's own original position, i.e. the movement is
+        /// cancelled in place, per the single supported boundary behavior
+        /// (see CLAUDE.md).
+        /// </summary>
         public Vector3Int ApplyBoundary(Vector3Int position)
         {
-            switch (BoundaryMode)
-            {
-                case BoundaryMode.Clamp:
-                    position.x = Mathf.Clamp(position.x, 0, GridSize.x - 1);
-                    position.y = Mathf.Clamp(position.y, 0, GridSize.y - 1);
-                    position.z = Mathf.Clamp(position.z, 0, GridSize.z - 1);
-                    break;
-                case BoundaryMode.Wrap:
-                    position.x = Wrap(position.x, GridSize.x);
-                    position.y = Wrap(position.y, GridSize.y);
-                    position.z = Wrap(position.z, GridSize.z);
-                    break;
-                case BoundaryMode.None:
-                default:
-                    break;
-            }
+            position.x = Mathf.Clamp(position.x, 0, GridSize.x - 1);
+            position.y = Mathf.Clamp(position.y, 0, GridSize.y - 1);
+            position.z = Mathf.Clamp(position.z, 0, GridSize.z - 1);
             return position;
         }
- 
-        private static int Wrap(int value, int size)
-        {
-            if (size <= 0) return value;
-            return ((value % size) + size) % size;
-        }
- 
+
+        public bool IsInBounds(Vector3Int position) =>
+            position.x >= 0 && position.x < GridSize.x &&
+            position.y >= 0 && position.y < GridSize.y &&
+            position.z >= 0 && position.z < GridSize.z;
+
         /// <summary>Restaura todas as partículas à posição e estado iniciais.</summary>
         public void ResetParticles()
         {

@@ -11,10 +11,13 @@ namespace ParticleSim.Core
     /// </summary>
     public interface IGridQuery
     {
-        /// <summary>Aplica o modo de contorno configurado (None/Clamp/Wrap) a uma posição da grade.</summary>
+        /// <summary>Bloqueia uma posição de destino na borda da grade: cada eixo é fixado no último índice válido, cancelando o deslocamento além da borda.</summary>
         Vector3Int ApplyBoundary(Vector3Int position);
- 
+
         /// <summary>Tenta obter a partícula que ocupa a posição informada.</summary>
         bool TryGetParticleAt(Vector3Int position, out Particle particle);
+
+        /// <summary>Verifica se a posição está dentro dos limites da grade (0 &lt;= coord &lt; GridSize em cada eixo).</summary>
+        bool IsInBounds(Vector3Int position);
     }
 }

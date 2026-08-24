@@ -24,9 +24,14 @@ namespace ParticleSim.UI
         private Label _behaviorPathLabel;
         private Label _statusLabel;
         private Label _movementsLabel;
+        private Label _collisionsLabel;
+        private Label _invalidMovementsLabel;
         private Label _fpsLabel;
         private Label _timeLabel;
         private Label _cyclesLabel;
+        private Label _stepTimeLabel;
+        private Label _messagesSentLabel;
+        private Label _messagesDeliveredLabel;
 
         private VisualElement _fullscreenButton;
         private VisualElement _quitButton;
@@ -42,9 +47,6 @@ namespace ParticleSim.UI
 
         private string _scenarioPath;
         private string _behaviorPath;
-        private float _fpsTimer;
-        private int _frameCount;
-        private float _lastFps;
 
         private void Awake()
         {
@@ -70,9 +72,14 @@ namespace ParticleSim.UI
             if (_behaviorPathLabel != null && simulation != null) _behaviorPathLabel.text = simulation.behaviorFileName;
 
             _movementsLabel = root.Q<Label>("movementsLabel");
+            _collisionsLabel = root.Q<Label>("collisionsLabel");
+            _invalidMovementsLabel = root.Q<Label>("invalidMovementsLabel");
             _fpsLabel = root.Q<Label>("fpsLabel");
             _timeLabel = root.Q<Label>("timeLabel");
             _cyclesLabel = root.Q<Label>("cyclesLabel");
+            _stepTimeLabel = root.Q<Label>("stepTimeLabel");
+            _messagesSentLabel = root.Q<Label>("messagesSentLabel");
+            _messagesDeliveredLabel = root.Q<Label>("messagesDeliveredLabel");
 
             _fullscreenButton = root.Q<VisualElement>("fullscreenButton");
             _quitButton = root.Q<VisualElement>("quitButton");
@@ -149,20 +156,7 @@ namespace ParticleSim.UI
 
         private void Update()
         {
-            UpdateFps();
             UpdateStats();
-        }
-
-        private void UpdateFps()
-        {
-            _frameCount++;
-            _fpsTimer += Time.unscaledDeltaTime;
-            if (_fpsTimer >= 0.5f)
-            {
-                _lastFps = _frameCount / _fpsTimer;
-                _frameCount = 0;
-                _fpsTimer = 0;
-            }
         }
 
         private void UpdateStats()
@@ -170,9 +164,14 @@ namespace ParticleSim.UI
             if (simulation == null) return;
 
             if (_movementsLabel != null) _movementsLabel.text = $"Movimentos: {simulation.TotalMovements}";
-            if (_fpsLabel != null) _fpsLabel.text = $"FPS: {Mathf.RoundToInt(_lastFps)}";
+            if (_collisionsLabel != null) _collisionsLabel.text = $"Colisões: {simulation.TotalCollisions}";
+            if (_invalidMovementsLabel != null) _invalidMovementsLabel.text = $"Movimentos inválidos: {simulation.TotalInvalidMovements}";
+            if (_fpsLabel != null) _fpsLabel.text = $"FPS: {Mathf.RoundToInt(simulation.FrameRate)}";
             if (_timeLabel != null) _timeLabel.text = $"Tempo decorrido: {simulation.SimulationTime:F1}s";
             if (_cyclesLabel != null) _cyclesLabel.text = $"Ciclos: {simulation.CycleCount}";
+            if (_stepTimeLabel != null) _stepTimeLabel.text = $"Tempo por ciclo: {simulation.AverageStepTimeMs:F2}ms";
+            if (_messagesSentLabel != null) _messagesSentLabel.text = $"Mensagens enviadas: {simulation.TotalMessagesSent}";
+            if (_messagesDeliveredLabel != null) _messagesDeliveredLabel.text = $"Mensagens recebidas: {simulation.TotalMessagesDelivered}";
         }
 
         // ---------- Simulation controls ----------
@@ -197,12 +196,6 @@ namespace ParticleSim.UI
         {
             if (simulation == null) return;
             simulation.ResetSimulation();
-            
-            // Reset FPS tracking for a clean start
-            _fpsTimer = 0f;
-            _frameCount = 0;
-            _lastFps = 0f;
-            
             SetStatus("Resetado para o início.");
         }
 
