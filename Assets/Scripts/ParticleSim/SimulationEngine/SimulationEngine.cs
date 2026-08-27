@@ -44,6 +44,8 @@ namespace ParticleSim.SimulationEngine
         public event Action<string> OnSimulationFinished;
         /// <summary>Fired when sendMessage creates a Message, queuing it for delivery (not yet visible to the recipient).</summary>
         public event Action<Message> OnMessageSent;
+        /// <summary>Fired once per sendMessage(...) action execution that created zero Messages — a directed send with no neighbor there, or a broadcast reaching none of the six faces. Distinct from OnMessageSent: a partially-successful broadcast fires only OnMessageSent (once per neighbor reached), never this.</summary>
+        public event Action<Particle> OnMessageSendFailed;
         /// <summary>Fired when a Message becomes visible in its recipient's Inbox, one cycle after it was sent.</summary>
         public event Action<Message> OnMessageDelivered;
         /// <summary>Fired once per particle whose valid move() intent (desired position differed from current) was cancelled by collision resolution because of another particle — either a shared-destination race or a target cell held by a non-mover.</summary>
@@ -238,32 +240,57 @@ namespace ParticleSim.SimulationEngine
             return true;
         }
 
+        /// <summary>Result of a single-direction send attempt — distinguishes a malformed direction string (an authoring error in behavior.json, not a communication event) from a well-formed direction that simply found no one there.</summary>
+        private enum SendResult { Sent, NoNeighbor, InvalidDirection }
+
         /// <summary>
         /// Processes sendMessage(dir?, content): with a direction, sends only
         /// to the neighbor occupying that face (no error if there is none,
         /// same convention as hasNeighbor returning false); without a
         /// direction, broadcasts a distinct Message to every occupied
-        /// neighbor across the six faces. Returns whether at least one
-        /// Message was actually created (used to count as activity for the
-        /// idle-cycle criterion).
+        /// neighbor across the six faces. Fires OnMessageSendFailed exactly
+        /// once when the action executed with a well-formed direction but
+        /// reached nobody at all — a partially-successful broadcast does not
+        /// fire it (it already counted the neighbors it did reach via
+        /// OnMessageSent), and neither does a malformed direction string
+        /// (that's a behavior.json authoring error, not a communication
+        /// attempt — it stays a Debug.LogWarning only, never counted).
+        /// Returns whether at least one Message was actually created (used to
+        /// count as activity for the idle-cycle criterion).
         /// </summary>
         private bool SendMessage(Particle sender, string direction, object content)
         {
-            if (!string.IsNullOrWhiteSpace(direction))
-                return TrySendTo(sender, direction, content);
+            bool anySent;
+            bool anyWellFormed;
 
-            bool anySent = false;
-            foreach (string dir in ConditionEvaluator.AllDirectionLabels)
-                anySent |= TrySendTo(sender, dir, content);
+            if (!string.IsNullOrWhiteSpace(direction))
+            {
+                SendResult result = TrySendTo(sender, direction, content);
+                anySent = result == SendResult.Sent;
+                anyWellFormed = result != SendResult.InvalidDirection;
+            }
+            else
+            {
+                anySent = false;
+                // The six broadcast labels are always well-formed by construction.
+                anyWellFormed = true;
+                foreach (string dir in ConditionEvaluator.AllDirectionLabels)
+                    if (TrySendTo(sender, dir, content) == SendResult.Sent)
+                        anySent = true;
+            }
+
+            if (!anySent && anyWellFormed)
+                OnMessageSendFailed?.Invoke(sender);
+
             return anySent;
         }
 
-        private bool TrySendTo(Particle sender, string direction, object content)
+        private SendResult TrySendTo(Particle sender, string direction, object content)
         {
             if (!ConditionEvaluator.TryParseDirection(direction, out Vector3Int delta))
             {
                 Debug.LogWarning($"[SimulationEngine] sendMessage: unknown direction '{direction}'.");
-                return false;
+                return SendResult.InvalidDirection;
             }
 
             // Not ApplyBoundary here — see ConditionEvaluator.HasNeighbor's
@@ -271,7 +298,7 @@ namespace ParticleSim.SimulationEngine
             // sender's own cell.
             Vector3Int neighborPos = sender.GridPosition + delta;
             if (!_particleManager.IsInBounds(neighborPos) || !_particleManager.TryGetParticleAt(neighborPos, out Particle recipient))
-                return false;
+                return SendResult.NoNeighbor;
 
             // The Message stores the direction of the sender AS SEEN BY the
             // recipient (the opposite of the direction it was sent with), so
@@ -284,7 +311,7 @@ namespace ParticleSim.SimulationEngine
             queue.Add(message);
 
             OnMessageSent?.Invoke(message);
-            return true;
+            return SendResult.Sent;
         }
 
         /// <summary>

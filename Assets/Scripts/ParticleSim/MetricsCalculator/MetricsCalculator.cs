@@ -37,6 +37,7 @@ namespace ParticleSim.MetricsCalculator
             _engine.OnCollision += _ => TotalCollisions++;
             _engine.OnInvalidMovement += _ => TotalInvalidMovements++;
             _engine.OnMessageSent += _ => TotalMessagesSent++;
+            _engine.OnMessageSendFailed += _ => TotalMessagesSent++;
             _engine.OnMessageDelivered += _ => TotalMessagesDelivered++;
         }
 
