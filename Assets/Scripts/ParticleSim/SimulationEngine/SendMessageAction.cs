@@ -1,3 +1,5 @@
+using ParticleSim.Core;
+
 namespace ParticleSim.SimulationEngine
 {
     /// <summary>
@@ -18,7 +20,7 @@ namespace ParticleSim.SimulationEngine
                 return false;
 
             string a = action.Trim();
-            if (!a.StartsWith("sendMessage", System.StringComparison.OrdinalIgnoreCase))
+            if (!a.StartsWith(LanguageVocabulary.SendMessage, System.StringComparison.OrdinalIgnoreCase))
                 return false;
 
             int open = a.IndexOf('(');

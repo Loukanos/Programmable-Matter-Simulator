@@ -1,11 +1,12 @@
+using ParticleSim.Core;
 using UnityEngine;
 
 namespace ParticleSim.SimulationEngine
 {
     /// <summary>
     /// Minimal parser for the supported action strings of this version.
-    /// Only move('DIR') is recognized, where DIR is one of:
-    /// X+, X-, Y+, Y-, Z+, Z-.
+    /// Only move('DIR') is recognized, where DIR is one of the six directions
+    /// defined by <see cref="LanguageVocabulary"/>.
     /// </summary>
     public static class MoveAction
     {
@@ -22,7 +23,7 @@ namespace ParticleSim.SimulationEngine
                 return false;
 
             string a = action.Trim();
-            if (!a.StartsWith("move", System.StringComparison.OrdinalIgnoreCase))
+            if (!a.StartsWith(LanguageVocabulary.Move, System.StringComparison.OrdinalIgnoreCase))
                 return false;
 
             int open = a.IndexOf('(');
@@ -30,25 +31,12 @@ namespace ParticleSim.SimulationEngine
             if (open < 0 || close < 0 || close <= open)
                 return false;
 
-            // Extract the argument and strip quotes / whitespace.
-            string arg = a.Substring(open + 1, close - open - 1)
-                          .Trim()
-                          .Trim('\'', '"')
-                          .Trim()
-                          .ToUpperInvariant();
+            string arg = a.Substring(open + 1, close - open - 1);
+            if (LanguageVocabulary.TryGetDirectionDelta(arg, out delta))
+                return true;
 
-            switch (arg)
-            {
-                case "X+": delta = new Vector3Int(1, 0, 0); return true;
-                case "X-": delta = new Vector3Int(-1, 0, 0); return true;
-                case "Y+": delta = new Vector3Int(0, 1, 0); return true;
-                case "Y-": delta = new Vector3Int(0, -1, 0); return true;
-                case "Z+": delta = new Vector3Int(0, 0, 1); return true;
-                case "Z-": delta = new Vector3Int(0, 0, -1); return true;
-                default:
-                    Debug.LogWarning($"[MoveAction] Unknown move direction: '{arg}'");
-                    return false;
-            }
+            Debug.LogWarning($"[MoveAction] Unknown move direction: '{arg.Trim()}'");
+            return false;
         }
     }
 }

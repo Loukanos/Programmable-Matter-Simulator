@@ -25,7 +25,7 @@ namespace ParticleSim.SimulationEngine
 
         private static bool EvaluateOr(string expr, Particle particle, IGridQuery grid)
         {
-            foreach (string part in SplitByOperator(expr, "Or"))
+            foreach (string part in SplitByOperator(expr, LanguageVocabulary.Or))
                 if (EvaluateAnd(part.Trim(), particle, grid))
                     return true;
             return false;
@@ -33,7 +33,7 @@ namespace ParticleSim.SimulationEngine
 
         private static bool EvaluateAnd(string expr, Particle particle, IGridQuery grid)
         {
-            foreach (string part in SplitByOperator(expr, "And"))
+            foreach (string part in SplitByOperator(expr, LanguageVocabulary.And))
                 if (!EvaluateNot(part.Trim(), particle, grid))
                     return false;
             return true;
@@ -41,22 +41,22 @@ namespace ParticleSim.SimulationEngine
 
         private static bool EvaluateNot(string expr, Particle particle, IGridQuery grid)
         {
-            if (expr.StartsWith("Not ", StringComparison.OrdinalIgnoreCase))
-                return !EvaluateNot(expr.Substring(4).Trim(), particle, grid);
+            if (expr.StartsWith(LanguageVocabulary.Not + " ", StringComparison.OrdinalIgnoreCase))
+                return !EvaluateNot(expr.Substring(LanguageVocabulary.Not.Length + 1).Trim(), particle, grid);
             return EvaluatePrimary(expr, particle, grid);
         }
 
         private static bool EvaluatePrimary(string expr, Particle particle, IGridQuery grid)
         {
-            if (expr.StartsWith("hasNeighbor", StringComparison.OrdinalIgnoreCase))
+            if (expr.StartsWith(LanguageVocabulary.HasNeighbor, StringComparison.OrdinalIgnoreCase))
                 return EvaluateHasNeighbor(expr, particle, grid);
-            if (expr.StartsWith("checkState", StringComparison.OrdinalIgnoreCase))
+            if (expr.StartsWith(LanguageVocabulary.CheckState, StringComparison.OrdinalIgnoreCase))
                 return EvaluateCheckState(expr, particle);
-            if (expr.StartsWith("checkMessage", StringComparison.OrdinalIgnoreCase))
+            if (expr.StartsWith(LanguageVocabulary.CheckMessage, StringComparison.OrdinalIgnoreCase))
                 return EvaluateCheckMessage(expr, particle);
 
-            if (expr.Equals("true", StringComparison.OrdinalIgnoreCase)) return true;
-            if (expr.Equals("false", StringComparison.OrdinalIgnoreCase)) return false;
+            if (expr.Equals(LanguageVocabulary.True, StringComparison.OrdinalIgnoreCase)) return true;
+            if (expr.Equals(LanguageVocabulary.False, StringComparison.OrdinalIgnoreCase)) return false;
 
             Debug.LogWarning($"[ConditionEvaluator] Expressão desconhecida: {expr}");
             return false;
@@ -69,13 +69,6 @@ namespace ParticleSim.SimulationEngine
             return HasNeighbor(particle, grid, arg);
         }
 
-        private static readonly Vector3Int[] AllDirectionDeltas =
-        {
-            new(1, 0, 0), new(-1, 0, 0),
-            new(0, 1, 0), new(0, -1, 0),
-            new(0, 0, 1), new(0, 0, -1),
-        };
-
         /// <summary>
         /// Verifica contato com um vizinho. Com <paramref name="direction"/>
         /// informado (X+, X-, Y+, Y-, Z+ ou Z-), checa apenas aquela face;
@@ -86,7 +79,7 @@ namespace ParticleSim.SimulationEngine
         {
             if (string.IsNullOrWhiteSpace(direction))
             {
-                foreach (Vector3Int d in AllDirectionDeltas)
+                foreach (Vector3Int d in LanguageVocabulary.DirectionDeltas)
                 {
                     Vector3Int neighborPos = particle.GridPosition + d;
                     if (grid.IsInBounds(neighborPos) && grid.TryGetParticleAt(neighborPos, out _))
@@ -95,7 +88,7 @@ namespace ParticleSim.SimulationEngine
                 return false;
             }
 
-            if (!TryParseDirection(direction, out Vector3Int delta))
+            if (!LanguageVocabulary.TryGetDirectionDelta(direction, out Vector3Int delta))
             {
                 Debug.LogWarning($"[ConditionEvaluator] Direção de vizinhança desconhecida: {direction}");
                 return false;
@@ -110,44 +103,6 @@ namespace ParticleSim.SimulationEngine
             return grid.IsInBounds(target) && grid.TryGetParticleAt(target, out _);
         }
 
-        /// <summary>All six face labels, e.g. for sendMessage's directionless broadcast form.</summary>
-        public static readonly string[] AllDirectionLabels = { "X+", "X-", "Y+", "Y-", "Z+", "Z-" };
-
-        public static bool TryParseDirection(string arg, out Vector3Int delta)
-        {
-            switch (arg.Trim('\'', '\"').ToUpperInvariant())
-            {
-                case "X+": delta = new Vector3Int(1, 0, 0); return true;
-                case "X-": delta = new Vector3Int(-1, 0, 0); return true;
-                case "Y+": delta = new Vector3Int(0, 1, 0); return true;
-                case "Y-": delta = new Vector3Int(0, -1, 0); return true;
-                case "Z+": delta = new Vector3Int(0, 0, 1); return true;
-                case "Z-": delta = new Vector3Int(0, 0, -1); return true;
-                default: delta = Vector3Int.zero; return false;
-            }
-        }
-
-        /// <summary>
-        /// Opposite direction (X+ ↔ X-, Y+ ↔ Y-, Z+ ↔ Z-). Used to derive the
-        /// origin direction stored on a Message from the direction it was
-        /// sent with: sendMessage(dir) points from the Sender to the
-        /// Recipient, but Message.Direction stores the inverse — the
-        /// Sender's direction as seen from the Recipient (see onMessage(dir)).
-        /// </summary>
-        public static string OppositeDirection(string direction)
-        {
-            switch (direction.Trim('\'', '\"').ToUpperInvariant())
-            {
-                case "X+": return "X-";
-                case "X-": return "X+";
-                case "Y+": return "Y-";
-                case "Y-": return "Y+";
-                case "Z+": return "Z-";
-                case "Z-": return "Z+";
-                default: return null;
-            }
-        }
-
         /// <summary>
         /// Checks the particle's current-cycle inbox. With
         /// <paramref name="direction"/> given, restricts to messages whose
@@ -159,7 +114,7 @@ namespace ParticleSim.SimulationEngine
             if (string.IsNullOrWhiteSpace(direction))
                 return particle.Inbox.Count > 0;
 
-            string normalized = direction.Trim('\'', '\"').ToUpperInvariant();
+            string normalized = LanguageVocabulary.NormalizeDirection(direction);
             foreach (Message message in particle.Inbox)
                 if (string.Equals(message.Direction, normalized, StringComparison.OrdinalIgnoreCase))
                     return true;
@@ -176,19 +131,12 @@ namespace ParticleSim.SimulationEngine
             object current = particle.GetInternalState(key);
             object target = ParseValue(args[2]);
 
-            switch (op)
-            {
-                case "==": return AreEqual(current, target);
-                case "!=": return !AreEqual(current, target);
-                case ">":
-                case "<":
-                case ">=":
-                case "<=":
-                    return CompareValues(current, target, op);
-                default:
-                    Debug.LogWarning($"[ConditionEvaluator] Operador de comparação desconhecido: {op}");
-                    return false;
-            }
+            if (op == LanguageVocabulary.Equal) return AreEqual(current, target);
+            if (op == LanguageVocabulary.NotEqual) return !AreEqual(current, target);
+            if (LanguageVocabulary.IsMagnitudeOperator(op)) return CompareValues(current, target, op);
+
+            Debug.LogWarning($"[ConditionEvaluator] Operador de comparação desconhecido: {op}");
+            return false;
         }
 
         // checkMessage has no operator parameter like checkState: it is

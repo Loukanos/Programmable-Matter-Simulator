@@ -23,6 +23,7 @@ namespace ParticleSim.UI
         private Label _scenarioPathLabel;
         private Label _behaviorPathLabel;
         private Label _statusLabel;
+        private Label _errorLabel;
         private Label _movementsLabel;
         private Label _collisionsLabel;
         private Label _invalidMovementsLabel;
@@ -67,6 +68,7 @@ namespace ParticleSim.UI
             _scenarioPathLabel = root.Q<Label>("scenarioPathLabel");
             _behaviorPathLabel = root.Q<Label>("behaviorPathLabel");
             _statusLabel = root.Q<Label>("statusLabel");
+            _errorLabel = root.Q<Label>("errorLabel");
 
             if (_scenarioPathLabel != null && simulation != null) _scenarioPathLabel.text = simulation.scenarioFileName;
             if (_behaviorPathLabel != null && simulation != null) _behaviorPathLabel.text = simulation.behaviorFileName;
@@ -108,7 +110,9 @@ namespace ParticleSim.UI
                 if (simulation.HasData)
                     SetStatus("Simulação carregada (padrão).");
                 else
-                    SetStatus("Falha ao carregar padrões. Verifique StreamingAssets.");
+                    SetStatus("Falha ao carregar padrões. Verifique os erros abaixo.");
+
+                ShowLoadError();
             }
         }
 
@@ -238,13 +242,31 @@ namespace ParticleSim.UI
             bool ok = simulation.LoadSimulation(scenarioPath, behaviorPath, false);
             SetStatus(ok
                 ? "Simulação carregada. Pressione \"Rodar\"."
-                : "Falha ao carregar. Verifique os arquivos JSON.");
+                : "Falha ao carregar. Verifique os erros abaixo.");
+
+            ShowLoadError();
         }
 
         private void SetStatus(string message)
         {
             if (_statusLabel != null)
                 _statusLabel.text = message;
+        }
+
+        /// <summary>
+        /// Provisional display of the validation errors that blocked the last
+        /// load. Pure display: the message is built by the validation module
+        /// and only passed through by SimulationController.
+        /// </summary>
+        private void ShowLoadError()
+        {
+            if (_errorLabel == null) return;
+
+            string error = simulation != null ? simulation.LastLoadError : null;
+            bool hasError = !string.IsNullOrEmpty(error);
+
+            _errorLabel.text = hasError ? error : string.Empty;
+            _errorLabel.style.display = hasError ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }

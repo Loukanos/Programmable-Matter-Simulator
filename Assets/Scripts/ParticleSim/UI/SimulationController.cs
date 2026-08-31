@@ -49,6 +49,8 @@ namespace ParticleSim.UI
         private float _timer;
 
         public bool HasData { get; private set; }
+        /// <summary>Descriptive validation errors from the last failed load, or null when the last load succeeded. Read by the UI to show the user why a file was rejected.</summary>
+        public string LastLoadError { get; private set; }
         public int TotalMovements => _metrics?.TotalMovements ?? 0;
         public float SimulationTime => _metrics?.SimulationTime ?? 0f;
         public int CycleCount => _engine?.CurrentCycle ?? 0;
@@ -112,14 +114,19 @@ namespace ParticleSim.UI
         /// </summary>
         public bool LoadSimulation(string scenarioPath, string behaviorPath, bool startRunning = false)
         {
-            ScenarioData scenario = ScenarioLoader.LoadFromFile(scenarioPath);
-            Dictionary<string, TypeBehavior> behaviors = BehaviorLoader.LoadFromFile(behaviorPath);
+            // Both files are always validated, even when the first already
+            // failed, so the user sees every problem in one pass.
+            ScenarioData scenario = ScenarioLoader.LoadFromFile(scenarioPath, out ValidationResult scenarioValidation);
+            Dictionary<string, TypeBehavior> behaviors = BehaviorLoader.LoadFromFile(behaviorPath, out ValidationResult behaviorValidation);
 
             if (scenario == null || behaviors == null)
             {
-                Debug.LogError("[SimulationController] Falha ao carregar: cenário ou comportamento inválido.");
+                LastLoadError = BuildLoadErrorMessage(scenarioValidation, behaviorValidation);
+                Debug.LogError($"[SimulationController] Falha ao carregar:\n{LastLoadError}");
                 return false;
             }
+
+            LastLoadError = null;
 
             _particleManager.BuildFromScenario(scenario);
             _engine.SetBehaviors(behaviors);
@@ -139,6 +146,17 @@ namespace ParticleSim.UI
             if (startRunning) _engine.Run();
 
             return true;
+        }
+
+        private static string BuildLoadErrorMessage(ValidationResult scenarioValidation, ValidationResult behaviorValidation)
+        {
+            var parts = new List<string>();
+            if (scenarioValidation != null && !scenarioValidation.IsValid) parts.Add(scenarioValidation.ToMessage());
+            if (behaviorValidation != null && !behaviorValidation.IsValid) parts.Add(behaviorValidation.ToMessage());
+
+            return parts.Count > 0
+                ? string.Join("\n", parts)
+                : "Cenário ou comportamento inválido.";
         }
 
         private void BuildViews()

@@ -274,7 +274,7 @@ namespace ParticleSim.SimulationEngine
                 anySent = false;
                 // The six broadcast labels are always well-formed by construction.
                 anyWellFormed = true;
-                foreach (string dir in ConditionEvaluator.AllDirectionLabels)
+                foreach (string dir in LanguageVocabulary.Directions)
                     if (TrySendTo(sender, dir, content) == SendResult.Sent)
                         anySent = true;
             }
@@ -287,7 +287,7 @@ namespace ParticleSim.SimulationEngine
 
         private SendResult TrySendTo(Particle sender, string direction, object content)
         {
-            if (!ConditionEvaluator.TryParseDirection(direction, out Vector3Int delta))
+            if (!LanguageVocabulary.TryGetDirectionDelta(direction, out Vector3Int delta))
             {
                 Debug.LogWarning($"[SimulationEngine] sendMessage: unknown direction '{direction}'.");
                 return SendResult.InvalidDirection;
@@ -303,7 +303,7 @@ namespace ParticleSim.SimulationEngine
             // The Message stores the direction of the sender AS SEEN BY the
             // recipient (the opposite of the direction it was sent with), so
             // that recipient.onMessage(dir) can match against it.
-            string originDirection = ConditionEvaluator.OppositeDirection(direction);
+            string originDirection = LanguageVocabulary.OppositeDirection(direction);
             var message = new Message(sender, recipient, content, originDirection);
 
             if (!_pendingMessages.TryGetValue(recipient, out List<Message> queue))

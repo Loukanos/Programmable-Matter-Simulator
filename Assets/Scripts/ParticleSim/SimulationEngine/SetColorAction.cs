@@ -1,3 +1,4 @@
+using ParticleSim.Core;
 using UnityEngine;
 
 namespace ParticleSim.SimulationEngine
@@ -12,7 +13,7 @@ namespace ParticleSim.SimulationEngine
                 return false;
 
             string a = action.Trim();
-            if (!a.StartsWith("setColor", System.StringComparison.OrdinalIgnoreCase))
+            if (!a.StartsWith(LanguageVocabulary.SetColor, System.StringComparison.OrdinalIgnoreCase))
                 return false;
 
             int open = a.IndexOf('(');

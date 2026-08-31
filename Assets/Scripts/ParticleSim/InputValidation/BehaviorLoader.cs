@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ParticleSim.Core;
@@ -10,141 +8,88 @@ using UnityEngine;
 namespace ParticleSim.InputValidation
 {
     /// <summary>
-    /// Responsible only for loading and deserializing a behavior JSON file
-    /// into a map of particleType -> TypeBehavior.
+    /// Loads a behavior JSON file into a map of particleType -> TypeBehavior.
+    /// The file is only converted after <see cref="BehaviorValidator"/> accepts
+    /// it — any lexical, syntactic or semantic error blocks the load
+    /// (RF04/RNF08) and is reported through the returned
+    /// <see cref="ValidationResult"/>. That includes the rule that movement is
+    /// not allowed inside onInit, which lives with the rest of the semantic
+    /// checks rather than being re-implemented here.
     /// </summary>
     public static class BehaviorLoader
     {
-        // Matches "onTouch" or "onTouch(X+)" (whitespace and quotes around
-        // the direction tolerated), case-insensitive.
-        private static readonly Regex OnTouchKeyRegex =
-            new(@"^onTouch\s*(?:\(\s*(.*?)\s*\))?$", RegexOptions.IgnoreCase);
-
-        // Matches "onMessage" or "onMessage(X+)", same convention as onTouch.
-        private static readonly Regex OnMessageKeyRegex =
-            new(@"^onMessage\s*(?:\(\s*(.*?)\s*\))?$", RegexOptions.IgnoreCase);
-
-        public static Dictionary<string, TypeBehavior> LoadFromFile(string absolutePath)
+        public static Dictionary<string, TypeBehavior> LoadFromFile(string absolutePath, out ValidationResult validation)
         {
+            validation = new ValidationResult();
+
             Debug.Log($"[BehaviorLoader] Attempting to load behavior from: {absolutePath}");
             if (!File.Exists(absolutePath))
             {
-                Debug.LogError($"[BehaviorLoader] Behavior file NOT found at: {absolutePath}");
+                validation.AddError($"Comportamento: arquivo não encontrado em '{absolutePath}'.");
                 return null;
             }
 
+            JObject root;
             try
             {
-                string json = File.ReadAllText(absolutePath);
-                var raw = JsonConvert.DeserializeObject<Dictionary<string, JObject>>(json);
-
-                if (raw == null)
-                {
-                    Debug.LogError("[BehaviorLoader] Failed to parse behavior JSON (result was null).");
-                    return null;
-                }
-
-                var result = new Dictionary<string, TypeBehavior>();
-                foreach (KeyValuePair<string, JObject> kvp in raw)
-                {
-                    TypeBehavior behavior = ParseTypeBehavior(kvp.Value);
-
-                    string invalidAction = FindMoveActionInOnInit(behavior.onInit);
-                    if (invalidAction != null)
-                    {
-                        Debug.LogError($"[BehaviorLoader] Ação de movimento não é permitida em onInit: tipo '{kvp.Key}', ação '{invalidAction}'.");
-                        return null;
-                    }
-
-                    result[kvp.Key] = behavior;
-                }
-
-                return result;
+                root = JsonConvert.DeserializeObject<JObject>(File.ReadAllText(absolutePath));
             }
-            catch (Exception e)
+            catch (System.Exception e)
             {
-                Debug.LogError($"[BehaviorLoader] Error reading behavior file: {e.Message}");
+                validation.AddError($"Comportamento: JSON inválido — {e.Message}");
+                return null;
+            }
+
+            BehaviorValidator.Validate(root, validation);
+            if (!validation.IsValid)
+                return null;
+
+            try
+            {
+                var behaviors = new Dictionary<string, TypeBehavior>();
+                foreach (JProperty typeProperty in root.Properties())
+                    behaviors[typeProperty.Name] = ParseTypeBehavior((JObject)typeProperty.Value);
+
+                return behaviors;
+            }
+            catch (System.Exception e)
+            {
+                validation.AddError($"Comportamento: erro ao interpretar o arquivo — {e.Message}");
                 return null;
             }
         }
 
         /// <summary>
-        /// Movimento não é permitido em onInit (seção 2.2.3 do TCC). Retorna
-        /// a primeira ação de movimento encontrada, ou null se nenhuma
-        /// existir. Reconhece o mesmo prefixo que MoveAction.TryParse (a
-        /// checagem não é feita chamando MoveAction diretamente para não
-        /// criar uma dependência de InputValidation sobre SimulationEngine).
+        /// Converts an already-validated type object into a TypeBehavior. Event
+        /// keys are recognized through <see cref="Grammar.ParseEventKey"/> — the
+        /// same routine the validator uses — so the key shapes are defined in
+        /// exactly one place.
         /// </summary>
-        private static string FindMoveActionInOnInit(List<ActionBlock> onInitBlocks)
-        {
-            if (onInitBlocks == null) return null;
-
-            foreach (ActionBlock block in onInitBlocks)
-            {
-                if (block?.actions == null) continue;
-                foreach (string action in block.actions)
-                {
-                    if (string.IsNullOrWhiteSpace(action)) continue;
-                    if (action.Trim().StartsWith("move", StringComparison.OrdinalIgnoreCase))
-                        return action;
-                }
-            }
-
-            return null;
-        }
-
-        private static TypeBehavior ParseTypeBehavior(JObject obj)
+        private static TypeBehavior ParseTypeBehavior(JObject typeObject)
         {
             var behavior = new TypeBehavior();
-            if (obj == null) return behavior;
+            if (typeObject == null) return behavior;
 
-            foreach (JProperty prop in obj.Properties())
+            foreach (JProperty property in typeObject.Properties())
             {
-                string name = prop.Name.Trim();
+                EventKey key = Grammar.ParseEventKey(property.Name);
+                List<ActionBlock> blocks = property.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>();
 
-                if (name.Equals("onInit", StringComparison.OrdinalIgnoreCase))
+                switch (key.Kind)
                 {
-                    behavior.onInit = prop.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>();
-                    continue;
+                    case EventKeyKind.OnInit:
+                        behavior.onInit = blocks;
+                        break;
+                    case EventKeyKind.OnStep:
+                        behavior.onStep = blocks;
+                        break;
+                    case EventKeyKind.OnTouch:
+                        behavior.onTouch.Add(new OnTouchEvent { direction = key.Direction, blocks = blocks });
+                        break;
+                    case EventKeyKind.OnMessage:
+                        behavior.onMessage.Add(new OnMessageEvent { direction = key.Direction, blocks = blocks });
+                        break;
                 }
-
-                if (name.Equals("onStep", StringComparison.OrdinalIgnoreCase))
-                {
-                    behavior.onStep = prop.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>();
-                    continue;
-                }
-
-                Match touchMatch = OnTouchKeyRegex.Match(name);
-                if (touchMatch.Success)
-                {
-                    string direction = touchMatch.Groups[1].Success
-                        ? touchMatch.Groups[1].Value.Trim().Trim('\'', '\"')
-                        : null;
-
-                    behavior.onTouch.Add(new OnTouchEvent
-                    {
-                        direction = string.IsNullOrWhiteSpace(direction) ? null : direction,
-                        blocks = prop.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>(),
-                    });
-                    continue;
-                }
-
-                Match messageMatch = OnMessageKeyRegex.Match(name);
-                if (messageMatch.Success)
-                {
-                    string direction = messageMatch.Groups[1].Success
-                        ? messageMatch.Groups[1].Value.Trim().Trim('\'', '\"')
-                        : null;
-
-                    behavior.onMessage.Add(new OnMessageEvent
-                    {
-                        direction = string.IsNullOrWhiteSpace(direction) ? null : direction,
-                        blocks = prop.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>(),
-                    });
-                    continue;
-                }
-
-                Debug.LogWarning($"[BehaviorLoader] Chave de evento desconhecida em behavior.json: '{name}'");
             }
 
             return behavior;

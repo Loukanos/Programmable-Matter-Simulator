@@ -178,6 +178,15 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     margin-top: 12px;
 }
 
+/* Provisional: shows validation errors that blocked a load. Hidden while empty. */
+.error-label {
+    color: rgb(240, 130, 130);
+    font-size: 12px;
+    white-space: normal;
+    margin-top: 8px;
+    display: none;
+}
+
 /* ---- Stats panel ---- */
 
 .stats-panel {

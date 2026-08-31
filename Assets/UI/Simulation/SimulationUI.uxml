@@ -58,6 +58,7 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 
             <ui:Button name="loadButton" text="Carregar simulação" class="load-button" />
             <ui:Label name="statusLabel" text="" class="status-label" />
+            <ui:Label name="errorLabel" text="" class="error-label" />
         </ui:VisualElement>
 
         <ui:VisualElement name="quitPopup" class="popup-overlay" picking-mode="Position">

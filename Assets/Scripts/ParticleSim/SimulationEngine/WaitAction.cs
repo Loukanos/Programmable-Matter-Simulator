@@ -1,3 +1,5 @@
+using ParticleSim.Core;
+
 namespace ParticleSim.SimulationEngine
 {
     /// <summary>
@@ -14,10 +16,10 @@ namespace ParticleSim.SimulationEngine
 
             string a = action.Trim();
 
-            if (a.Equals("wait", System.StringComparison.OrdinalIgnoreCase))
+            if (a.Equals(LanguageVocabulary.Wait, System.StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            if (!a.StartsWith("wait", System.StringComparison.OrdinalIgnoreCase))
+            if (!a.StartsWith(LanguageVocabulary.Wait, System.StringComparison.OrdinalIgnoreCase))
                 return false;
 
             int open = a.IndexOf('(');
@@ -26,7 +28,9 @@ namespace ParticleSim.SimulationEngine
                 return false;
 
             // Nada além de espaços entre "wait" e "(", e nenhum argumento dentro dos parênteses.
-            return a.Substring(4, open - 4).Trim().Length == 0
+            int nameLength = LanguageVocabulary.Wait.Length;
+            return open >= nameLength
+                && a.Substring(nameLength, open - nameLength).Trim().Length == 0
                 && a.Substring(open + 1, close - open - 1).Trim().Length == 0;
         }
     }
