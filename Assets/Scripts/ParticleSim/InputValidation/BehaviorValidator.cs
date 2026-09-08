@@ -134,7 +134,7 @@ namespace ParticleSim.InputValidation
                 return;
             }
 
-            ExpressionValidator.ValidateCondition(token.Value<string>(), where, result);
+            ExpressionValidator.ValidateCondition(token.Value<string>(), where, result, out _);
         }
 
         private static void ValidateActions(JObject block, string where, bool isOnInit, ValidationResult result)
@@ -169,7 +169,7 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                ExpressionValidator.ValidateAction(actions[i].Value<string>(), actionWhere, isOnInit, result);
+                ExpressionValidator.ValidateAction(actions[i].Value<string>(), actionWhere, isOnInit, result, out _);
             }
         }
     }

@@ -5,31 +5,6 @@ using ParticleSim.Core;
 
 namespace ParticleSim.InputValidation
 {
-    public enum TokenKind
-    {
-        Identifier,
-        Number,
-        QuotedString,
-        Direction,
-        RelationalOperator,
-        LParen,
-        RParen,
-        Comma,
-    }
-
-    /// <summary>One lexical unit of a condition or action expression.</summary>
-    public class Token
-    {
-        public TokenKind Kind;
-        /// <summary>The token exactly as written in the source, quotes included.</summary>
-        public string Text;
-        /// <summary>The token's meaning: quoted strings lose their quotes, everything else matches Text.</summary>
-        public string Value;
-        public int Position;
-
-        public override string ToString() => Text;
-    }
-
     /// <summary>
     /// Lexical analysis phase (RF04/RNF08): turns one condition or action
     /// string into tokens, rejecting characters and malformed literals that

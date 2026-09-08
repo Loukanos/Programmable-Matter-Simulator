@@ -15,6 +15,14 @@ namespace ParticleSim.InputValidation
     /// <see cref="ValidationResult"/>. That includes the rule that movement is
     /// not allowed inside onInit, which lives with the rest of the semantic
     /// checks rather than being re-implemented here.
+    ///
+    /// Once validation passes, every block's condition/actions strings are
+    /// parsed a second time here to build the AST
+    /// (<see cref="ActionBlock.ParsedCondition"/>/<see cref="ActionBlock.ParsedActions"/>)
+    /// that SimulationEngine evaluates — this second pass is guaranteed to
+    /// succeed (validation already proved every string well-formed), so
+    /// parsing happens exactly twice total per string, at load time, and
+    /// never again per cycle per particle.
     /// </summary>
     public static class BehaviorLoader
     {
@@ -74,6 +82,8 @@ namespace ParticleSim.InputValidation
             {
                 EventKey key = Grammar.ParseEventKey(property.Name);
                 List<ActionBlock> blocks = property.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>();
+                bool isOnInit = key.Kind == EventKeyKind.OnInit;
+                BuildAst(blocks, isOnInit);
 
                 switch (key.Kind)
                 {
@@ -93,6 +103,31 @@ namespace ParticleSim.InputValidation
             }
 
             return behavior;
+        }
+
+        /// <summary>
+        /// Populates ParsedCondition/ParsedActions on every block. A discarded
+        /// ValidationResult is passed to the (already-proven-successful)
+        /// parse calls only because the shared parsing API always reports
+        /// through one — this call path can't actually fail post-validation.
+        /// </summary>
+        private static void BuildAst(List<ActionBlock> blocks, bool isOnInit)
+        {
+            var discarded = new ValidationResult();
+
+            foreach (ActionBlock block in blocks)
+            {
+                if (block == null) continue;
+
+                ExpressionValidator.ValidateCondition(block.condition, "reparse", discarded, out block.ParsedCondition);
+
+                block.ParsedActions = new List<ActionNode>();
+                foreach (string action in block.actions)
+                {
+                    ExpressionValidator.ValidateAction(action, "reparse", isOnInit, discarded, out ActionNode node);
+                    block.ParsedActions.Add(node);
+                }
+            }
         }
     }
 }

@@ -3,13 +3,20 @@ using System.Collections.Generic;
 namespace ParticleSim.Core
 {
     /// <summary>
-    /// A block of actions to be executed during an event.
-    /// In this first version only the "actions" list is supported.
+    /// A block of actions to be executed during an event. "condition" and
+    /// "actions" are the raw JSON text, deserialized directly by
+    /// Newtonsoft.Json; "ParsedCondition"/"ParsedActions" are the AST built
+    /// from that text once, by BehaviorLoader after validation passes — the
+    /// interpreter (SimulationEngine.ConditionEvaluator/ProcessActions) only
+    /// ever walks the parsed form, never re-parses the raw string.
     /// </summary>
     public class ActionBlock
     {
         public string condition;
         public List<string> actions = new();
+
+        public ConditionNode ParsedCondition;
+        public List<ActionNode> ParsedActions = new();
     }
 
     /// <summary>

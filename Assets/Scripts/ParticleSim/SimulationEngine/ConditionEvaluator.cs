@@ -1,79 +1,78 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using UnityEngine;
 using ParticleSim.Core;
 
 namespace ParticleSim.SimulationEngine
 {
     /// <summary>
-    /// Interpreta as condições da linguagem declarativa (hasNeighbor,
-    /// checkState, operadores lógicos And/Or/Not) para uma partícula,
-    /// consultando a grade apenas através de IGridQuery — nunca conhece o
-    /// ParticleManager concreto nem qualquer classe de ParticleSim.UI.
+    /// Evaluates a condition AST (hasNeighbor, checkState, checkMessage,
+    /// And/Or/Not) for a particle, consulting the grade only through
+    /// IGridQuery — never knows the concrete ParticleManager nor any
+    /// ParticleSim.UI class. The AST is built once at load time by
+    /// InputValidation.ExpressionValidator; this class only ever walks it,
+    /// never re-parses a string — see CLAUDE.md.
     /// </summary>
     public static class ConditionEvaluator
     {
-        public static bool Evaluate(string condition, Particle particle, IGridQuery grid)
+        /// <summary>A null node means an absent/empty "condition", which always evaluates true.</summary>
+        public static bool Evaluate(ConditionNode node, Particle particle, IGridQuery grid)
         {
-            if (string.IsNullOrWhiteSpace(condition))
-                return true;
+            if (node == null) return true;
 
-            return EvaluateOr(condition.Trim(), particle, grid);
-        }
-
-        private static bool EvaluateOr(string expr, Particle particle, IGridQuery grid)
-        {
-            foreach (string part in SplitByOperator(expr, LanguageVocabulary.Or))
-                if (EvaluateAnd(part.Trim(), particle, grid))
-                    return true;
-            return false;
-        }
-
-        private static bool EvaluateAnd(string expr, Particle particle, IGridQuery grid)
-        {
-            foreach (string part in SplitByOperator(expr, LanguageVocabulary.And))
-                if (!EvaluateNot(part.Trim(), particle, grid))
+            switch (node)
+            {
+                case OrNode orNode:
+                    foreach (ConditionNode operand in orNode.Operands)
+                        if (Evaluate(operand, particle, grid))
+                            return true;
                     return false;
-            return true;
+
+                case AndNode andNode:
+                    foreach (ConditionNode operand in andNode.Operands)
+                        if (!Evaluate(operand, particle, grid))
+                            return false;
+                    return true;
+
+                case NotNode notNode:
+                    return !Evaluate(notNode.Operand, particle, grid);
+
+                case BoolLiteralNode boolNode:
+                    return boolNode.Value;
+
+                case FunctionCallNode call:
+                    return EvaluateFunctionCall(call, particle, grid);
+
+                default:
+                    Debug.LogWarning($"[ConditionEvaluator] Nó de condição desconhecido: {node.GetType().Name}");
+                    return false;
+            }
         }
 
-        private static bool EvaluateNot(string expr, Particle particle, IGridQuery grid)
+        private static bool EvaluateFunctionCall(FunctionCallNode call, Particle particle, IGridQuery grid)
         {
-            if (expr.StartsWith(LanguageVocabulary.Not + " ", StringComparison.OrdinalIgnoreCase))
-                return !EvaluateNot(expr.Substring(LanguageVocabulary.Not.Length + 1).Trim(), particle, grid);
-            return EvaluatePrimary(expr, particle, grid);
-        }
+            if (call.FunctionName == LanguageVocabulary.HasNeighbor)
+                return HasNeighbor(particle, grid, call.Arguments.Length > 0 ? call.Arguments[0].Value : null);
+            if (call.FunctionName == LanguageVocabulary.CheckState)
+                return EvaluateCheckState(call.Arguments, particle);
+            if (call.FunctionName == LanguageVocabulary.CheckMessage)
+                return EvaluateCheckMessage(call.Arguments, particle);
 
-        private static bool EvaluatePrimary(string expr, Particle particle, IGridQuery grid)
-        {
-            if (expr.StartsWith(LanguageVocabulary.HasNeighbor, StringComparison.OrdinalIgnoreCase))
-                return EvaluateHasNeighbor(expr, particle, grid);
-            if (expr.StartsWith(LanguageVocabulary.CheckState, StringComparison.OrdinalIgnoreCase))
-                return EvaluateCheckState(expr, particle);
-            if (expr.StartsWith(LanguageVocabulary.CheckMessage, StringComparison.OrdinalIgnoreCase))
-                return EvaluateCheckMessage(expr, particle);
-
-            if (expr.Equals(LanguageVocabulary.True, StringComparison.OrdinalIgnoreCase)) return true;
-            if (expr.Equals(LanguageVocabulary.False, StringComparison.OrdinalIgnoreCase)) return false;
-
-            Debug.LogWarning($"[ConditionEvaluator] Expressão desconhecida: {expr}");
+            // Unreachable once a file has passed validation — Grammar only
+            // registers these three as FunctionRole.Condition — kept as a
+            // defensive fallback rather than an exception, matching this
+            // codebase's general preference for not crashing the simulation.
+            Debug.LogWarning($"[ConditionEvaluator] Função de condição desconhecida: {call.FunctionName}");
             return false;
-        }
-
-        private static bool EvaluateHasNeighbor(string expr, Particle particle, IGridQuery grid)
-        {
-            string arg = ExtractArgument(expr);
-            if (string.IsNullOrEmpty(arg)) return false;
-            return HasNeighbor(particle, grid, arg);
         }
 
         /// <summary>
         /// Verifica contato com um vizinho. Com <paramref name="direction"/>
         /// informado (X+, X-, Y+, Y-, Z+ ou Z-), checa apenas aquela face;
         /// caso contrário, checa as seis faces (usado por onTouch sem
-        /// direção específica).
+        /// direção específica). Recebe uma string diretamente (não um nó da
+        /// AST) porque a direção de onTouch(DIR) vem da chave do evento JSON
+        /// (Grammar.ParseEventKey), nunca fez parte da gramática de expressão.
         /// </summary>
         public static bool HasNeighbor(Particle particle, IGridQuery grid, string direction = null)
         {
@@ -107,7 +106,8 @@ namespace ParticleSim.SimulationEngine
         /// Checks the particle's current-cycle inbox. With
         /// <paramref name="direction"/> given, restricts to messages whose
         /// origin direction (Message.Direction) matches; otherwise (bare
-        /// onMessage), any message in the inbox triggers it.
+        /// onMessage), any message in the inbox triggers it. Same
+        /// raw-string convention as HasNeighbor, for the same reason.
         /// </summary>
         public static bool HasMessage(Particle particle, string direction = null)
         {
@@ -121,15 +121,12 @@ namespace ParticleSim.SimulationEngine
             return false;
         }
 
-        private static bool EvaluateCheckState(string expr, Particle particle)
+        private static bool EvaluateCheckState(Token[] args, Particle particle)
         {
-            string[] args = ExtractArguments(expr);
-            if (args.Length < 3) return false;
-
-            string key = args[0];
-            string op = args[1];
+            string key = args[0].Value;
+            string op = args[1].Value;
             object current = particle.GetInternalState(key);
-            object target = ParseValue(args[2]);
+            object target = ParseValue(args[2].Value);
 
             if (op == LanguageVocabulary.Equal) return AreEqual(current, target);
             if (op == LanguageVocabulary.NotEqual) return !AreEqual(current, target);
@@ -141,12 +138,9 @@ namespace ParticleSim.SimulationEngine
 
         // checkMessage has no operator parameter like checkState: it is
         // always a simple equality comparison against Message.Content.
-        private static bool EvaluateCheckMessage(string expr, Particle particle)
+        private static bool EvaluateCheckMessage(Token[] args, Particle particle)
         {
-            string arg = ExtractArgument(expr);
-            if (arg == null) return false;
-
-            object target = ParseValue(arg);
+            object target = ParseValue(args[0].Value);
             foreach (Message message in particle.Inbox)
                 if (AreEqual(message.Content, target))
                     return true;
@@ -186,42 +180,6 @@ namespace ParticleSim.SimulationEngine
                 case "<=": return comparison <= 0;
                 default: return false;
             }
-        }
-
-        private static string[] SplitByOperator(string expr, string op) =>
-            Regex.Split(expr, $@"\s*\b{op}\b\s*", RegexOptions.IgnoreCase);
-
-        private static string ExtractArgument(string expr)
-        {
-            int open = expr.IndexOf('(');
-            int close = expr.LastIndexOf(')');
-            if (open < 0 || close < 0 || close <= open) return null;
-            return expr.Substring(open + 1, close - open - 1).Trim();
-        }
-
-        public static string[] ExtractArguments(string expr)
-        {
-            string inner = ExtractArgument(expr);
-            if (inner == null) return Array.Empty<string>();
-
-            var args = new List<string>();
-            bool inQuotes = false;
-            char quoteChar = '\0';
-            int start = 0;
-
-            for (int i = 0; i < inner.Length; i++)
-            {
-                char c = inner[i];
-                if ((c == '\'' || c == '\"') && !inQuotes) { inQuotes = true; quoteChar = c; }
-                else if (c == quoteChar && inQuotes) { inQuotes = false; quoteChar = '\0'; }
-                else if (c == ',' && !inQuotes)
-                {
-                    args.Add(inner.Substring(start, i - start).Trim().Trim('\'', '\"'));
-                    start = i + 1;
-                }
-            }
-            args.Add(inner.Substring(start).Trim().Trim('\'', '\"'));
-            return args.ToArray();
         }
 
         public static object ParseValue(string valStr)

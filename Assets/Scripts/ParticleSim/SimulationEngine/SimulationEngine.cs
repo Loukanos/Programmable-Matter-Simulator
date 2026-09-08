@@ -151,18 +151,18 @@ namespace ParticleSim.SimulationEngine
 
             foreach (ActionBlock block in blocks)
             {
-                if (block?.actions == null) continue;
-                if (!ConditionEvaluator.Evaluate(block.condition, particle, _particleManager)) continue;
+                if (block?.ParsedActions == null) continue;
+                if (!ConditionEvaluator.Evaluate(block.ParsedCondition, particle, _particleManager)) continue;
 
-                foreach (string action in block.actions)
+                foreach (ActionNode action in block.ParsedActions)
                 {
-                    if (string.IsNullOrWhiteSpace(action)) continue;
+                    if (action == null) continue;
 
-                    if (WaitAction.IsWait(action))
+                    if (action.FunctionName == LanguageVocabulary.Wait)
                     {
                         // Nenhuma ação: mantém posição e estado inalterados.
                     }
-                    else if (MoveAction.TryParse(action, out Vector3Int delta))
+                    else if (action.FunctionName == LanguageVocabulary.Move)
                     {
                         // Movimentos declarados em onInit não deslocam a partícula
                         // (também barrado em tempo de carregamento por
@@ -172,6 +172,9 @@ namespace ParticleSim.SimulationEngine
                         // são descartados.
                         if (!isOnInit && !moveConsumed)
                         {
+                            // A direção já foi validada no carregamento —
+                            // sempre uma das seis válidas nesse ponto.
+                            LanguageVocabulary.TryGetDirectionDelta(action.Arguments[0].Value, out Vector3Int delta);
                             Vector3Int desired = position + delta;
                             Vector3Int bounded = _particleManager.ApplyBoundary(desired);
                             if (bounded != desired)
@@ -180,36 +183,65 @@ namespace ParticleSim.SimulationEngine
                             moveConsumed = true;
                         }
                     }
-                    else if (SetStateAction.TryParse(action, out string key, out object value, out bool isIncrement))
+                    else if (action.FunctionName == LanguageVocabulary.SetState)
                     {
-                        if (isIncrement)
+                        if (ApplySetState(particle, action.Arguments))
+                            anyActivity = true;
+                    }
+                    else if (action.FunctionName == LanguageVocabulary.SetColor)
+                    {
+                        // O hex já foi validado no carregamento — TryParseHtmlString
+                        // sempre deve ter sucesso aqui.
+                        if (ColorUtility.TryParseHtmlString(action.Arguments[0].Value, out Color color))
                         {
-                            if (ApplyStateIncrement(particle, key, (double)value))
-                                anyActivity = true;
-                        }
-                        else
-                        {
-                            particle.SetInternalState(key, value);
+                            OnColorChanged?.Invoke(particle, color);
                             anyActivity = true;
                         }
                     }
-                    else if (SetColorAction.TryParse(action, out Color color))
+                    else if (action.FunctionName == LanguageVocabulary.SendMessage)
                     {
-                        OnColorChanged?.Invoke(particle, color);
-                        anyActivity = true;
-                    }
-                    else if (SendMessageAction.TryParse(action, out string sendDirection, out object content))
-                    {
-                        if (SendMessage(particle, sendDirection, content))
+                        string direction = action.Arguments.Length == 2 ? action.Arguments[0].Value : null;
+                        object content = ConditionEvaluator.ParseValue(action.Arguments[^1].Value);
+                        if (SendMessage(particle, direction, content))
                             anyActivity = true;
                     }
                     else
                     {
-                        Debug.LogWarning($"[SimulationEngine] Ação não reconhecida: '{action}'");
+                        // Inalcançável depois que um arquivo passa na validação —
+                        // Grammar só registra estas cinco como FunctionRole.Action.
+                        Debug.LogWarning($"[SimulationEngine] Ação não reconhecida: '{action.FunctionName}'");
                     }
                 }
             }
             return position;
+        }
+
+        /// <summary>
+        /// Aplica setState('key', value): quando o token do valor é um
+        /// literal numérico não citado prefixado com +/- (ex.: +5, -3.2), é
+        /// sempre um incremento/decremento relativo (delegado a
+        /// ApplyStateIncrement); qualquer outra forma é atribuição absoluta.
+        /// Um valor citado nunca lexa como TokenKind.Number, então nunca é
+        /// tratado como incremento — mesma regra de antes, agora verificada
+        /// pelo tipo do token em vez de inspecionar aspas manualmente.
+        /// </summary>
+        private static bool ApplySetState(Particle particle, Token[] args)
+        {
+            string key = args[0].Value;
+            Token valueToken = args[1];
+
+            bool isIncrement = valueToken.Kind == TokenKind.Number
+                && valueToken.Text.Length > 0
+                && (valueToken.Text[0] == '+' || valueToken.Text[0] == '-');
+
+            if (isIncrement)
+            {
+                double delta = double.Parse(valueToken.Text, System.Globalization.CultureInfo.InvariantCulture);
+                return ApplyStateIncrement(particle, key, delta);
+            }
+
+            particle.SetInternalState(key, ConditionEvaluator.ParseValue(valueToken.Value));
+            return true;
         }
 
         /// <summary>
