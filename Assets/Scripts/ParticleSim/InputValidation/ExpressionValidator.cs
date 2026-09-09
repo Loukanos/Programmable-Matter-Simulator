@@ -16,17 +16,31 @@ namespace ParticleSim.InputValidation
     ///
     /// The condition grammar mirrors the interpreter's precedence — Not binds
     /// tighter than And, which binds tighter than Or, and there is no
-    /// parenthesized grouping, so '(' only ever opens a function call:
+    /// parenthesized grouping, so '(' only ever opens a call:
     ///
     ///   Or    := And ( 'Or' And )*
     ///   And   := Not ( 'And' Not )*
     ///   Not   := 'Not'* Term
-    ///   Term  := 'true' | 'false' | Call
+    ///   Term  := 'true' | 'false' | ConditionReference | Call
     ///   Call  := Identifier '(' ( Argument ( ',' Argument )* )? ')'
+    ///   Argument := Token | Identifier '(' ( Argument ( ',' Argument )* )? ')'
     ///
-    /// An action is a single Call (plus the bare 'wait' form). Every argument
-    /// is exactly one token — no function in this language takes a nested
-    /// expression — which is enforced here as a syntax rule.
+    /// A ConditionReference is a bare identifier (not followed by '(') that
+    /// names an entry in the file's "definitions" block — resolved into that
+    /// definition's own tree by InputValidation.DefinitionResolver, after
+    /// validation, before SimulationEngine ever sees it (see
+    /// Core.ConditionReferenceNode). An Argument may itself be a nested call
+    /// to any FunctionRole.Value function — recursively, so
+    /// opposite(state('dir')) is valid — which is why argument collection can
+    /// no longer assume "one token per argument". This includes the 7
+    /// pure "read" functions (state/opposite/messageValue/myId/
+    /// countNeighbors/canMove/moveResult) plus the two boolean-producing
+    /// condition functions that are also dual-role (hasNeighbor,
+    /// checkMessage — see Grammar.FunctionRole); checkState is the
+    /// deliberate exception that stays Condition-only and can never be
+    /// nested.
+    ///
+    /// An action is a single Call (plus the bare 'wait' form).
     ///
     /// Only the first problem inside one expression is reported: later errors
     /// in the same string are usually cascades of the first, and the file is
@@ -39,9 +53,12 @@ namespace ParticleSim.InputValidation
         /// Validates a block's "condition" and builds its AST. An absent or
         /// empty condition is valid — it always evaluates true — and yields a
         /// null node (SimulationEngine.ConditionEvaluator treats null the
-        /// same way).
+        /// same way). <paramref name="definitionNames"/> is the set of names
+        /// declared in the file's "definitions" block (empty/null when there
+        /// is none) — a bare identifier not matching a known function is
+        /// accepted as a reference only when it is in this set.
         /// </summary>
-        public static bool ValidateCondition(string expression, string context, ValidationResult result, out ConditionNode node)
+        public static bool ValidateCondition(string expression, string context, ValidationResult result, ISet<string> definitionNames, out ConditionNode node)
         {
             node = null;
             if (string.IsNullOrWhiteSpace(expression)) return true;
@@ -52,7 +69,7 @@ namespace ParticleSim.InputValidation
                 return false;
             }
 
-            var parser = new Parser(tokens);
+            var parser = new Parser(tokens, definitionNames);
             node = parser.ParseConditionRoot();
             if (node == null)
             {
@@ -65,7 +82,8 @@ namespace ParticleSim.InputValidation
         /// <summary>
         /// Validates one entry of a block's "actions" and builds its AST.
         /// <paramref name="isOnInit"/> enables the semantic rule that
-        /// movement is not allowed at init time.
+        /// movement is not allowed at init time. Actions never reference
+        /// named conditions, so there is no definitionNames parameter here.
         /// </summary>
         public static bool ValidateAction(string action, string context, bool isOnInit, ValidationResult result, out ActionNode node)
         {
@@ -83,7 +101,7 @@ namespace ParticleSim.InputValidation
                 return false;
             }
 
-            var parser = new Parser(tokens);
+            var parser = new Parser(tokens, null);
             node = parser.ParseActionRoot(isOnInit);
             if (node == null)
             {
@@ -97,11 +115,16 @@ namespace ParticleSim.InputValidation
         private class Parser
         {
             private readonly List<Token> _tokens;
+            private readonly ISet<string> _definitionNames;
             private int _index;
 
             public string Error { get; private set; }
 
-            public Parser(List<Token> tokens) => _tokens = tokens;
+            public Parser(List<Token> tokens, ISet<string> definitionNames)
+            {
+                _tokens = tokens;
+                _definitionNames = definitionNames ?? new HashSet<string>();
+            }
 
             private Token Current => _index < _tokens.Count ? _tokens[_index] : null;
             private bool AtEnd => _index >= _tokens.Count;
@@ -195,6 +218,9 @@ namespace ParticleSim.InputValidation
                     && string.Equals(token.Value, keyword, StringComparison.OrdinalIgnoreCase);
             }
 
+            private bool NextIsLParen() =>
+                _index + 1 < _tokens.Count && _tokens[_index + 1].Kind == TokenKind.LParen;
+
             private ConditionNode ParseConditionTerm()
             {
                 Token token = Current;
@@ -212,6 +238,16 @@ namespace ParticleSim.InputValidation
                 if (LanguageVocabulary.IsLogicalKeyword(token.Value))
                     return Fail($"operador lógico '{token.Text}' fora de lugar");
 
+                // A bare identifier (no '(' following) names a condição
+                // nomeada, not a function call — functions always require
+                // parentheses in condition position (none of hasNeighbor/
+                // checkState/checkMessage has a zero-argument form).
+                if (!NextIsLParen() && _definitionNames.Contains(token.Value))
+                {
+                    Advance();
+                    return new ConditionReferenceNode { Name = token.Value };
+                }
+
                 return ParseFunctionCall(FunctionRole.Condition, out _);
             }
 
@@ -228,11 +264,14 @@ namespace ParticleSim.InputValidation
 
                 if (!Grammar.TryGetFunction(nameToken.Value, out signature))
                 {
-                    Fail($"função desconhecida '{nameToken.Text}' (reconhecidas em {RoleName(expectedRole)}: {Grammar.DescribeFunctions(expectedRole)})");
+                    string hint = expectedRole == FunctionRole.Condition && _definitionNames.Count > 0
+                        ? " nem o nome de uma condição definida em 'definitions'"
+                        : "";
+                    Fail($"função desconhecida '{nameToken.Text}'{hint} (reconhecidas em {RoleName(expectedRole)}: {Grammar.DescribeFunctions(expectedRole)})");
                     return null;
                 }
 
-                if (signature.Role != expectedRole)
+                if (!signature.Role.HasFlag(expectedRole))
                 {
                     Fail($"'{signature.Name}' é uma função de {RoleName(signature.Role)} e não pode ser usada como {RoleName(expectedRole)}");
                     return null;
@@ -245,58 +284,96 @@ namespace ParticleSim.InputValidation
                     // 'wait' is the one function that may also be written bare,
                     // without parentheses.
                     if (signature.AcceptsArgumentCount(0))
-                        return new FunctionCallNode { FunctionName = signature.Name, Arguments = Array.Empty<Token>() };
+                        return new FunctionCallNode { FunctionName = signature.Name, Arguments = Array.Empty<ValueNode>() };
                     Fail($"esperava '(' após '{signature.Name}'");
                     return null;
                 }
 
-                Advance();
-
-                var arguments = new List<Token>();
-                if (Current != null && Current.Kind == TokenKind.RParen)
-                {
-                    Advance();
-                }
-                else
-                {
-                    while (true)
-                    {
-                        Token argument = Current;
-                        if (argument == null)
-                        {
-                            Fail($"parêntese ')' não fechado em '{signature.Name}'");
-                            return null;
-                        }
-
-                        if (argument.Kind == TokenKind.Comma || argument.Kind == TokenKind.RParen || argument.Kind == TokenKind.LParen)
-                        {
-                            Fail($"argumento ausente ou malformado em '{signature.Name}' perto de '{argument.Text}'");
-                            return null;
-                        }
-
-                        arguments.Add(argument);
-                        Advance();
-
-                        if (Current == null)
-                        {
-                            Fail($"parêntese ')' não fechado em '{signature.Name}'");
-                            return null;
-                        }
-
-                        if (Current.Kind == TokenKind.Comma) { Advance(); continue; }
-                        if (Current.Kind == TokenKind.RParen) { Advance(); break; }
-
-                        // Every argument in this language is a single token.
-                        Fail($"argumento malformado em '{signature.Name}' perto de '{Current.Text}'");
-                        return null;
-                    }
-                }
-
-                if (!ValidateArguments(signature, arguments)) return null;
+                List<ValueNode> arguments = ParseArgumentList(signature);
+                if (arguments == null) return null;
+                if (!ValidateValueArguments(signature, arguments)) return null;
                 return new FunctionCallNode { FunctionName = signature.Name, Arguments = arguments.ToArray() };
             }
 
-            private bool ValidateArguments(FunctionSignature signature, List<Token> arguments)
+            /// <summary>
+            /// Parses one argument: a nested read-function call — recognized
+            /// purely by shape, an identifier immediately followed by '(' —
+            /// or a single token used as-is, the only shape arguments had
+            /// before nested calls existed. Whether the result is actually
+            /// allowed in its slot (bare token vs call, and which functions)
+            /// is checked afterward by ValidateValueArgument, once the
+            /// enclosing call's overload — and so each slot's expected
+            /// ArgumentKind — is resolved by argument count.
+            /// </summary>
+            private ValueNode ParseValueArgument()
+            {
+                Token token = Current;
+                if (token == null) { Fail("fim inesperado dos argumentos"); return null; }
+
+                bool isNestedCall = token.Kind == TokenKind.Identifier && NextIsLParen();
+                if (!isNestedCall)
+                {
+                    Advance();
+                    return new LiteralValueNode { Token = token };
+                }
+
+                if (!Grammar.TryGetFunction(token.Value, out FunctionSignature signature) || !signature.Role.HasFlag(FunctionRole.Value))
+                {
+                    Fail($"função desconhecida '{token.Text}' (reconhecidas como valor: {Grammar.DescribeFunctions(FunctionRole.Value)})");
+                    return null;
+                }
+
+                Advance(); // the function name; ParseArgumentList consumes the '(' NextIsLParen already confirmed.
+
+                List<ValueNode> arguments = ParseArgumentList(signature);
+                if (arguments == null) return null;
+                if (!ValidateValueArguments(signature, arguments)) return null;
+                return new ValueCallNode { FunctionName = signature.Name, Arguments = arguments.ToArray() };
+            }
+
+            /// <summary>
+            /// Parses "(" arg (',' arg)* ")" for an already-identified
+            /// function — shared by ParseFunctionCall and ParseValueArgument
+            /// so the comma/closing-paren handling exists once. Assumes the
+            /// current token is '(' and consumes it.
+            /// </summary>
+            private List<ValueNode> ParseArgumentList(FunctionSignature signature)
+            {
+                Advance(); // '('
+
+                var arguments = new List<ValueNode>();
+                if (Current != null && Current.Kind == TokenKind.RParen)
+                {
+                    Advance();
+                    return arguments;
+                }
+
+                while (true)
+                {
+                    if (Current != null && (Current.Kind == TokenKind.Comma || Current.Kind == TokenKind.RParen || Current.Kind == TokenKind.LParen))
+                    {
+                        Fail($"argumento ausente ou malformado em '{signature.Name}' perto de '{Current.Text}'");
+                        return null;
+                    }
+
+                    ValueNode argument = ParseValueArgument();
+                    if (argument == null) return null;
+                    arguments.Add(argument);
+
+                    if (Current == null)
+                    {
+                        Fail($"parêntese ')' não fechado em '{signature.Name}'");
+                        return null;
+                    }
+                    if (Current.Kind == TokenKind.Comma) { Advance(); continue; }
+                    if (Current.Kind == TokenKind.RParen) { Advance(); return arguments; }
+
+                    Fail($"argumento malformado em '{signature.Name}' perto de '{Current.Text}'");
+                    return null;
+                }
+            }
+
+            private bool ValidateValueArguments(FunctionSignature signature, List<ValueNode> arguments)
             {
                 if (!signature.AcceptsArgumentCount(arguments.Count))
                 {
@@ -304,18 +381,60 @@ namespace ParticleSim.InputValidation
                     return false;
                 }
 
-                ArgumentKind[] expected = signature.OverloadFor(arguments.Count);
+                ArgumentKind[] expected = ResolveOverload(signature, arguments);
                 for (int i = 0; i < expected.Length; i++)
-                    if (!ValidateArgument(signature, expected[i], arguments[i], i))
+                    if (!ValidateValueArgument(signature, expected[i], arguments[i], i))
                         return false;
 
                 return ValidateCheckStateOperandRule(signature, arguments);
             }
 
-            private bool ValidateArgument(FunctionSignature signature, ArgumentKind kind, Token token, int index)
+            /// <summary>
+            /// Picks which same-length overload applies. Only sendMessage has
+            /// more than one candidate for a given argument count today (2:
+            /// directed-no-payload `(dir, tag)` vs broadcast-with-payload
+            /// `(tag, payload)`) — resolved by whether argument 0 is
+            /// direction-shaped, via Core.LanguageVocabulary.IsDirectionShaped
+            /// (shared with SimulationEngine.SimulationEngine.IsDirected,
+            /// which re-derives this exact decision at runtime from the same
+            /// ValueNode shape, so the two can never disagree about which
+            /// overload a call matched — see that method's doc comment for
+            /// the sendMessage('X+', 5) edge case this implies).
+            /// </summary>
+            private static ArgumentKind[] ResolveOverload(FunctionSignature signature, List<ValueNode> arguments)
+            {
+                ArgumentKind[][] candidates = signature.OverloadsFor(arguments.Count);
+                if (candidates.Length <= 1) return candidates.Length == 1 ? candidates[0] : Array.Empty<ArgumentKind>();
+
+                bool looksLikeDirection = LanguageVocabulary.IsDirectionShaped(arguments[0]);
+                foreach (ArgumentKind[] candidate in candidates)
+                    if ((candidate[0] == ArgumentKind.Direction) == looksLikeDirection)
+                        return candidate;
+
+                return candidates[0];
+            }
+
+            private bool ValidateValueArgument(FunctionSignature signature, ArgumentKind kind, ValueNode node, int index)
             {
                 string where = $"argumento {index + 1} de '{signature.Name}'";
 
+                if (node is ValueCallNode call)
+                {
+                    if (kind == ArgumentKind.Direction)
+                    {
+                        if (call.FunctionName == LanguageVocabulary.State || call.FunctionName == LanguageVocabulary.Opposite)
+                            return true;
+                        Fail($"{where} espera uma direção — '{call.FunctionName}(...)' não produz uma direção");
+                        return false;
+                    }
+                    if (kind == ArgumentKind.Value) return true; // any FunctionRole.Value function produces a comparable value
+                    if (kind == ArgumentKind.NumericValue) return true; // accepted syntactically; not statically known to produce a number — see SimulationEngine.ResolvePayload for the runtime fallback
+
+                    Fail($"{where} não aceita uma função aninhada — deve ser um literal simples");
+                    return false;
+                }
+
+                Token token = ((LiteralValueNode)node).Token;
                 switch (kind)
                 {
                     case ArgumentKind.Direction:
@@ -350,7 +469,13 @@ namespace ParticleSim.InputValidation
                         Fail($"{where} deve ser uma cor hexadecimal entre aspas no formato '#RRGGBB', mas é '{token.Text}'");
                         return false;
 
+                    case ArgumentKind.NumericValue:
+                        if (IsNumericLiteral(token)) return true;
+                        Fail($"{where} deve ser um literal numérico ou uma chamada a uma função de valor, mas é '{token.Text}'");
+                        return false;
+
                     case ArgumentKind.Literal:
+                    case ArgumentKind.Value:
                         if (token.Kind == TokenKind.Number
                             || token.Kind == TokenKind.QuotedString
                             || token.Kind == TokenKind.Identifier
@@ -366,19 +491,23 @@ namespace ParticleSim.InputValidation
             /// <summary>
             /// TCC rule: the magnitude operators (&gt;, &lt;, &gt;=, &lt;=) may only compare
             /// against a numeric literal. == and != stay valid for any type.
+            /// Only checked when the value is a plain literal — a computed
+            /// value (state(...), moveResult(), ...) can't be verified
+            /// until runtime, the same already-documented limitation as a
+            /// state key's type.
             /// </summary>
-            private bool ValidateCheckStateOperandRule(FunctionSignature signature, List<Token> arguments)
+            private bool ValidateCheckStateOperandRule(FunctionSignature signature, List<ValueNode> arguments)
             {
                 if (!string.Equals(signature.Name, LanguageVocabulary.CheckState, StringComparison.OrdinalIgnoreCase)) return true;
                 if (arguments.Count != 3) return true;
 
-                string op = OperatorTextOf(arguments[1]);
+                string op = OperatorTextOf(((LiteralValueNode)arguments[1]).Token);
                 if (!LanguageVocabulary.IsMagnitudeOperator(op)) return true;
 
-                Token value = arguments[2];
-                if (IsNumericLiteral(value)) return true;
+                if (arguments[2] is not LiteralValueNode literalValue) return true;
+                if (IsNumericLiteral(literalValue.Token)) return true;
 
-                Fail($"o operador '{op}' em 'checkState' só compara valores numéricos, mas '{value.Text}' é um literal booleano ou de texto");
+                Fail($"o operador '{op}' em 'checkState' só compara valores numéricos, mas '{literalValue.Token.Text}' é um literal booleano ou de texto");
                 return false;
             }
 
@@ -396,8 +525,15 @@ namespace ParticleSim.InputValidation
                 return false;
             }
 
-            private static string RoleName(FunctionRole role) =>
-                role == FunctionRole.Condition ? "condição" : "ação";
+            /// <summary>Describes a (possibly combined) role for an error message, e.g. "condição/valor" for a dual-role function.</summary>
+            private static string RoleName(FunctionRole role)
+            {
+                var parts = new List<string>();
+                if (role.HasFlag(FunctionRole.Condition)) parts.Add("condição");
+                if (role.HasFlag(FunctionRole.Action)) parts.Add("ação");
+                if (role.HasFlag(FunctionRole.Value)) parts.Add("valor");
+                return parts.Count > 0 ? string.Join("/", parts) : role.ToString();
+            }
         }
     }
 }

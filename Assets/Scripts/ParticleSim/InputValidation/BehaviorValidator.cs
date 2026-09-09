@@ -29,8 +29,14 @@ namespace ParticleSim.InputValidation
                 return;
             }
 
+            Dictionary<string, ConditionNode> definitions = ValidateDefinitions(root, result);
+            var definitionNames = new HashSet<string>(definitions.Keys, StringComparer.Ordinal);
+
             foreach (JProperty typeProperty in root.Properties())
             {
+                if (string.Equals(typeProperty.Name, Grammar.DefinitionsKey, StringComparison.OrdinalIgnoreCase))
+                    continue; // handled above, not a particle type
+
                 if (string.IsNullOrWhiteSpace(typeProperty.Name))
                 {
                     result.AddError("Comportamento: existe um tipo de partícula com nome vazio.");
@@ -43,11 +49,68 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                ValidateType(typeProperty.Name, (JObject)typeProperty.Value, result);
+                ValidateType(typeProperty.Name, (JObject)typeProperty.Value, definitionNames, result);
             }
         }
 
-        private static void ValidateType(string typeName, JObject typeObject, ValidationResult result)
+        /// <summary>
+        /// Validates the optional "definitions" block: name -> condition
+        /// string, each validated the same way a block's "condition" is,
+        /// with the full set of names available so definitions can
+        /// cross-reference each other (or even themselves — caught below as
+        /// a cycle, not as an unknown-reference error). Returns every
+        /// successfully-parsed definition's tree, keyed by name.
+        /// </summary>
+        private static Dictionary<string, ConditionNode> ValidateDefinitions(JObject root, ValidationResult result)
+        {
+            var definitions = new Dictionary<string, ConditionNode>(StringComparer.Ordinal);
+
+            JToken token = root[Grammar.DefinitionsKey];
+            if (token == null || token.Type == JTokenType.Null) return definitions;
+
+            if (token.Type != JTokenType.Object)
+            {
+                result.AddError($"Comportamento: '{Grammar.DefinitionsKey}' deve ser um objeto mapeando nome de condição -> texto de condição.");
+                return definitions;
+            }
+
+            var definitionsObject = (JObject)token;
+
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (JProperty property in definitionsObject.Properties())
+            {
+                if (string.IsNullOrWhiteSpace(property.Name))
+                {
+                    result.AddError($"Comportamento: '{Grammar.DefinitionsKey}' tem uma condição nomeada com nome vazio.");
+                    continue;
+                }
+                names.Add(property.Name);
+            }
+
+            foreach (JProperty property in definitionsObject.Properties())
+            {
+                if (string.IsNullOrWhiteSpace(property.Name)) continue; // already reported above
+
+                string where = $"Comportamento: '{Grammar.DefinitionsKey}', condição '{property.Name}'";
+
+                if (property.Value.Type != JTokenType.String)
+                {
+                    result.AddError($"{where}: deve ser um texto.");
+                    continue;
+                }
+
+                if (ExpressionValidator.ValidateCondition(property.Value.Value<string>(), where, result, names, out ConditionNode node))
+                    definitions[property.Name] = node;
+            }
+
+            string cycleName = DefinitionResolver.FindCycle(definitions);
+            if (cycleName != null)
+                result.AddError($"Comportamento: '{Grammar.DefinitionsKey}' tem uma referência circular envolvendo '{cycleName}'.");
+
+            return definitions;
+        }
+
+        private static void ValidateType(string typeName, JObject typeObject, HashSet<string> definitionNames, ValidationResult result)
         {
             foreach (JProperty eventProperty in typeObject.Properties())
             {
@@ -75,11 +138,11 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                ValidateBlocks(eventProperty.Value, where, key.Kind == EventKeyKind.OnInit, result);
+                ValidateBlocks(eventProperty.Value, where, key.Kind == EventKeyKind.OnInit, definitionNames, result);
             }
         }
 
-        private static void ValidateBlocks(JToken blocksToken, string where, bool isOnInit, ValidationResult result)
+        private static void ValidateBlocks(JToken blocksToken, string where, bool isOnInit, HashSet<string> definitionNames, ValidationResult result)
         {
             if (blocksToken == null || blocksToken.Type == JTokenType.Null)
             {
@@ -106,7 +169,7 @@ namespace ParticleSim.InputValidation
 
                 var block = (JObject)blocks[i];
                 ValidateBlockFields(block, blockWhere, result);
-                ValidateCondition(block, blockWhere, result);
+                ValidateCondition(block, blockWhere, definitionNames, result);
                 ValidateActions(block, blockWhere, isOnInit, result);
             }
         }
@@ -123,7 +186,7 @@ namespace ParticleSim.InputValidation
                     result.AddError($"{where}: campo desconhecido '{field.Name}' (um bloco aceita apenas 'condition' e 'actions').");
         }
 
-        private static void ValidateCondition(JObject block, string where, ValidationResult result)
+        private static void ValidateCondition(JObject block, string where, HashSet<string> definitionNames, ValidationResult result)
         {
             JToken token = block["condition"];
             if (token == null || token.Type == JTokenType.Null) return;
@@ -134,7 +197,7 @@ namespace ParticleSim.InputValidation
                 return;
             }
 
-            ExpressionValidator.ValidateCondition(token.Value<string>(), where, result, out _);
+            ExpressionValidator.ValidateCondition(token.Value<string>(), where, result, definitionNames, out _);
         }
 
         private static void ValidateActions(JObject block, string where, bool isOnInit, ValidationResult result)

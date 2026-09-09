@@ -21,6 +21,14 @@ namespace ParticleSim.Core
         /// <summary>Messages delivered at the start of the current cycle (see SimulationEngine.DeliverPendingMessages).</summary>
         public IReadOnlyList<Message> Inbox => _inbox;
 
+        /// <summary>
+        /// Outcome of this particle's move() attempt in the *previous* cycle
+        /// (exposed to the declarative language via moveResult()) — set once
+        /// per particle at the end of every SimulationEngine.Step(), so it
+        /// always reflects the cycle before the one currently being processed.
+        /// </summary>
+        public MoveOutcome LastMoveResult { get; private set; } = MoveOutcome.NotAttempted;
+
         public Particle(int id, string type, Vector3Int gridPosition)
         {
             Id = id;
@@ -55,11 +63,17 @@ namespace ParticleSim.Core
             _inbox.Add(message);
         }
 
+        public void SetLastMoveResult(MoveOutcome outcome)
+        {
+            LastMoveResult = outcome;
+        }
+
         public void ResetToInitial()
         {
             GridPosition = InitialGridPosition;
             _internalState.Clear();
             _inbox.Clear();
+            LastMoveResult = MoveOutcome.NotAttempted;
         }
     }
 }

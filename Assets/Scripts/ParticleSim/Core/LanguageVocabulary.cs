@@ -80,6 +80,33 @@ namespace ParticleSim.Core
             return !string.IsNullOrEmpty(normalized) && DeltaByDirection.ContainsKey(normalized);
         }
 
+        /// <summary>
+        /// Whether a parsed argument is syntactically shaped like a
+        /// direction — a literal direction token/quoted-direction string, or
+        /// a nested call to state(...)/opposite(...) (the only two nested
+        /// calls ever validated into a Direction slot) — without resolving
+        /// it to an actual value. This is purely a shape check on the AST,
+        /// not a runtime resolution (see SimulationEngine.ValueResolver.
+        /// ResolveDirection for that); it exists specifically to let
+        /// InputValidation.ExpressionValidator and SimulationEngine.
+        /// SimulationEngine each decide, independently but identically,
+        /// which of sendMessage's two same-length overloads
+        /// (directed-no-payload `(dir, tag)` vs broadcast-with-payload
+        /// `(tag, payload)`) a given call matches — one shared
+        /// implementation here rather than two copies that could drift, since
+        /// both modules already depend on Core (and must not depend on each
+        /// other) and ValueNode/Token already live here too.
+        /// </summary>
+        public static bool IsDirectionShaped(ValueNode node)
+        {
+            if (node is ValueCallNode call)
+                return call.FunctionName == State || call.FunctionName == Opposite;
+
+            Token token = ((LiteralValueNode)node).Token;
+            return token.Kind == TokenKind.Direction
+                || (token.Kind == TokenKind.QuotedString && IsDirection(token.Value));
+        }
+
         /// <summary>Grid displacement of a direction, or false when it is not one of the six.</summary>
         public static bool TryGetDirectionDelta(string value, out Vector3Int delta)
         {
@@ -176,5 +203,32 @@ namespace ParticleSim.Core
         public const string SetColor = "setColor";
         public const string Wait = "wait";
         public const string SendMessage = "sendMessage";
+
+        // ---- Value-producing ("read") functions ----
+        // Usable as arguments wherever a direction or a checkState/setState
+        // operand is accepted, never as a standalone condition/action.
+
+        public const string State = "state";
+        public const string Opposite = "opposite";
+        public const string MessageValue = "messageValue";
+        public const string MyId = "myId";
+        public const string CountNeighbors = "countNeighbors";
+        public const string CanMove = "canMove";
+        public const string MoveResult = "moveResult";
+
+        // ---- MoveOutcome tokens ----
+        // The string values moveResult() resolves to, for use in
+        // checkState(moveResult(), '==', 'moved') etc. Proposed names, not
+        // specified by the extension request.
+
+        private static readonly Dictionary<MoveOutcome, string> MoveOutcomeTokens = new()
+        {
+            [MoveOutcome.Moved] = "moved",
+            [MoveOutcome.BlockedByCollision] = "blockedByCollision",
+            [MoveOutcome.Invalid] = "invalid",
+            [MoveOutcome.NotAttempted] = "notAttempted",
+        };
+
+        public static string DescribeMoveOutcome(MoveOutcome outcome) => MoveOutcomeTokens[outcome];
     }
 }

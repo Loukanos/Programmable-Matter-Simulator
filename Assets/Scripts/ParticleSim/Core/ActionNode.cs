@@ -11,6 +11,6 @@ namespace ParticleSim.Core
     public class ActionNode
     {
         public string FunctionName;
-        public Token[] Arguments = System.Array.Empty<Token>();
+        public ValueNode[] Arguments = System.Array.Empty<ValueNode>();
     }
 }

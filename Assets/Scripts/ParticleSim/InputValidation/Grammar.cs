@@ -8,33 +8,80 @@ namespace ParticleSim.InputValidation
     /// <summary>What a function argument is allowed to be.</summary>
     public enum ArgumentKind
     {
-        /// <summary>One of the six face directions, quoted or bare (e.g. 'X+' or X+).</summary>
+        /// <summary>
+        /// One of the six face directions, quoted or bare (e.g. 'X+' or X+),
+        /// or a nested call to state(...)/opposite(...) (recursively) — the
+        /// direction-as-variable extension.
+        /// </summary>
         Direction,
-        /// <summary>The name of an internal state variable.</summary>
+        /// <summary>The name of an internal state variable — always a plain literal, never computed.</summary>
         StateKey,
-        /// <summary>==, !=, &gt;, &lt;, &gt;= or &lt;=, quoted or bare.</summary>
+        /// <summary>==, !=, &gt;, &lt;, &gt;= or &lt;=, quoted or bare — always a plain literal.</summary>
         RelationalOperator,
-        /// <summary>A numeric, boolean or textual literal.</summary>
+        /// <summary>A numeric, boolean or textual literal — always a plain literal (checkMessage's tag, sendMessage's tag).</summary>
         Literal,
-        /// <summary>A quoted hexadecimal color such as '#RRGGBB'.</summary>
+        /// <summary>A quoted hexadecimal color such as '#RRGGBB' — always a plain literal.</summary>
         HexColor,
+        /// <summary>
+        /// A numeric literal, or a nested call to any FunctionRole.Value
+        /// function — sendMessage's optional payload. Unlike the general
+        /// Value kind, a literal here must actually be numeric (checked
+        /// statically, same as before); a nested call is accepted
+        /// syntactically but isn't statically known to produce a number —
+        /// see SimulationEngine.SimulationEngine.ResolvePayload for the
+        /// runtime fallback when it doesn't.
+        /// </summary>
+        NumericValue,
+        /// <summary>
+        /// A literal of any type, or a nested call to any FunctionRole.Value
+        /// function — the 7 pure "read" functions (state/opposite/
+        /// messageValue/myId/countNeighbors/canMove/moveResult) plus the
+        /// boolean-producing condition functions that are also dual-role
+        /// (hasNeighbor, checkMessage). checkState's comparison value and
+        /// setState's assigned value.
+        /// </summary>
+        Value,
     }
 
-    /// <summary>Where a function may legally appear.</summary>
+    /// <summary>
+    /// Where a function may legally appear. [Flags]: a function can hold more
+    /// than one role at once. Every boolean-producing function — hasNeighbor,
+    /// checkMessage, canMove — is registered as Condition | Value, so it can
+    /// be used both directly ("condition": "canMove('X+')") and nested inside
+    /// checkState/setState ("checkState('k', '==', canMove('X+'))"), evaluated
+    /// by the exact same code either way (see SimulationEngine.
+    /// ConditionEvaluator.EvaluateHasNeighbor/EvaluateCheckMessage and
+    /// ValueResolver.ResolveCanMove, each called from both dispatch sites).
+    /// checkState itself is the one deliberate exception: Condition-only,
+    /// never nestable as a value, even though it also produces a boolean —
+    /// nesting checkState inside checkState was never requested and adds
+    /// nothing checkState's own generalized operand doesn't already cover.
+    /// Any new boolean-producing function should default to
+    /// Condition | Value here, matching this convention, rather than being
+    /// decided case by case.
+    /// </summary>
+    [Flags]
     public enum FunctionRole
     {
-        /// <summary>Usable inside a block's "condition".</summary>
-        Condition,
+        /// <summary>Usable inside a block's "condition", directly.</summary>
+        Condition = 1,
         /// <summary>Usable inside a block's "actions".</summary>
-        Action,
+        Action = 2,
+        /// <summary>Usable as a nested argument in a Direction or Value slot.</summary>
+        Value = 4,
     }
 
     public enum EventKeyKind { OnInit, OnStep, OnTouch, OnMessage, Unknown }
 
     /// <summary>
     /// One declarative-language function: its role and every argument list
-    /// shape it accepts (sendMessage is the only one with two shapes, since
-    /// its direction argument is optional).
+    /// shape it accepts. sendMessage is the one function with more than one
+    /// shape sharing the same argument count (2: directed-no-payload vs
+    /// broadcast-with-payload) — see ExpressionValidator.ResolveOverload,
+    /// which is what actually picks between same-length candidates by
+    /// inspecting argument 0's shape; every other function here has at most
+    /// one overload per length, so <see cref="OverloadsFor"/> returning more
+    /// than one entry is specific to sendMessage.
     /// </summary>
     public class FunctionSignature
     {
@@ -50,20 +97,26 @@ namespace ParticleSim.InputValidation
             return false;
         }
 
-        public ArgumentKind[] OverloadFor(int count)
+        /// <summary>Every overload accepting exactly this many arguments — usually 0 or 1, but sendMessage can have 2 (see class doc comment).</summary>
+        public ArgumentKind[][] OverloadsFor(int count)
         {
+            var matches = new List<ArgumentKind[]>();
             foreach (ArgumentKind[] overload in Overloads)
                 if (overload.Length == count)
-                    return overload;
-            return null;
+                    matches.Add(overload);
+            return matches.ToArray();
         }
 
         public string DescribeAcceptedCounts()
         {
-            var counts = new List<string>();
+            var counts = new List<int>();
             foreach (ArgumentKind[] overload in Overloads)
-                counts.Add(overload.Length.ToString());
-            return string.Join(" ou ", counts);
+                if (!counts.Contains(overload.Length))
+                    counts.Add(overload.Length);
+            counts.Sort();
+            var text = new List<string>();
+            foreach (int count in counts) text.Add(count.ToString());
+            return string.Join(" ou ", text);
         }
     }
 
@@ -94,6 +147,9 @@ namespace ParticleSim.InputValidation
     /// </summary>
     public static class Grammar
     {
+        /// <summary>Reserved top-level behavior.json key for named conditions — a sibling of the particle-type entries, not a type itself.</summary>
+        public const string DefinitionsKey = "definitions";
+
         // "onTouch", "onTouch(X+)", "onMessage( 'Y-' )" — name plus an optional
         // parenthesized parameter. Quotes around the parameter are tolerated to
         // match how the rest of the language treats direction literals.
@@ -112,24 +168,52 @@ namespace ParticleSim.InputValidation
             void Add(string name, FunctionRole role, params ArgumentKind[][] overloads) =>
                 functions[name] = new FunctionSignature { Name = name, Role = role, Overloads = overloads };
 
-            Add(LanguageVocabulary.HasNeighbor, FunctionRole.Condition,
+            // hasNeighbor/checkMessage/canMove are boolean-producing and dual-role
+            // (Condition | Value) — see the FunctionRole doc comment above.
+            Add(LanguageVocabulary.HasNeighbor, FunctionRole.Condition | FunctionRole.Value,
                 new[] { ArgumentKind.Direction });
             Add(LanguageVocabulary.CheckState, FunctionRole.Condition,
-                new[] { ArgumentKind.StateKey, ArgumentKind.RelationalOperator, ArgumentKind.Literal });
-            Add(LanguageVocabulary.CheckMessage, FunctionRole.Condition,
+                new[] { ArgumentKind.StateKey, ArgumentKind.RelationalOperator, ArgumentKind.Value });
+            Add(LanguageVocabulary.CheckMessage, FunctionRole.Condition | FunctionRole.Value,
                 new[] { ArgumentKind.Literal });
 
             Add(LanguageVocabulary.Move, FunctionRole.Action,
                 new[] { ArgumentKind.Direction });
             Add(LanguageVocabulary.SetState, FunctionRole.Action,
-                new[] { ArgumentKind.StateKey, ArgumentKind.Literal });
+                new[] { ArgumentKind.StateKey, ArgumentKind.Value });
             Add(LanguageVocabulary.SetColor, FunctionRole.Action,
                 new[] { ArgumentKind.HexColor });
             Add(LanguageVocabulary.Wait, FunctionRole.Action,
                 Array.Empty<ArgumentKind>());
+            // 4 shapes: broadcast (tag) / directed (dir, tag) / broadcast with
+            // payload (tag, payload) / directed with payload (dir, tag,
+            // payload). The two 2-argument shapes share a length — resolved
+            // by argument 0's shape, not by count alone (see
+            // ExpressionValidator.ResolveOverload and SimulationEngine.
+            // SimulationEngine.IsDirected, which re-derives the same
+            // decision at runtime from the same ValueNode shape).
             Add(LanguageVocabulary.SendMessage, FunctionRole.Action,
                 new[] { ArgumentKind.Literal },
-                new[] { ArgumentKind.Direction, ArgumentKind.Literal });
+                new[] { ArgumentKind.Direction, ArgumentKind.Literal },
+                new[] { ArgumentKind.Literal, ArgumentKind.NumericValue },
+                new[] { ArgumentKind.Direction, ArgumentKind.Literal, ArgumentKind.NumericValue });
+
+            // Value-producing ("read") functions — usable only as a nested
+            // argument in a Direction or Value slot, never standalone.
+            Add(LanguageVocabulary.State, FunctionRole.Value,
+                new[] { ArgumentKind.StateKey });
+            Add(LanguageVocabulary.Opposite, FunctionRole.Value,
+                new[] { ArgumentKind.Direction });
+            Add(LanguageVocabulary.MessageValue, FunctionRole.Value,
+                Array.Empty<ArgumentKind>());
+            Add(LanguageVocabulary.MyId, FunctionRole.Value,
+                Array.Empty<ArgumentKind>());
+            Add(LanguageVocabulary.CountNeighbors, FunctionRole.Value,
+                Array.Empty<ArgumentKind>());
+            Add(LanguageVocabulary.CanMove, FunctionRole.Condition | FunctionRole.Value,
+                new[] { ArgumentKind.Direction });
+            Add(LanguageVocabulary.MoveResult, FunctionRole.Value,
+                Array.Empty<ArgumentKind>());
 
             return functions;
         }
@@ -143,12 +227,12 @@ namespace ParticleSim.InputValidation
             return !string.IsNullOrWhiteSpace(name) && Functions.TryGetValue(name.Trim(), out signature);
         }
 
-        /// <summary>Names of every function valid in the given role, for error messages.</summary>
+        /// <summary>Names of every function valid in the given role (a dual-role function is listed under both), for error messages.</summary>
         public static string DescribeFunctions(FunctionRole role)
         {
             var names = new List<string>();
             foreach (FunctionSignature signature in Functions.Values)
-                if (signature.Role == role)
+                if (signature.Role.HasFlag(role))
                     names.Add(signature.Name);
             names.Sort(StringComparer.Ordinal);
             return string.Join(", ", names);

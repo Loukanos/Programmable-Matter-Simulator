@@ -39,6 +39,21 @@ namespace ParticleSim.Core
     public class FunctionCallNode : ConditionNode
     {
         public string FunctionName;
-        public Token[] Arguments = System.Array.Empty<Token>();
+        public ValueNode[] Arguments = System.Array.Empty<ValueNode>();
+    }
+
+    /// <summary>
+    /// A reference to a named condition ("definitions" entry), used as a bare
+    /// condition term. Never reaches SimulationEngine — InputValidation
+    /// resolves every reference into the referenced definition's own
+    /// (already-parsed) tree, spliced in place, before the tree is stored on
+    /// ActionBlock.ParsedCondition. Substitution at the tree level means no
+    /// textual parenthesization is needed to keep precedence correct: the
+    /// referenced tree just becomes this node's replacement wherever it sits
+    /// in the parent Or/And/Not structure. See InputValidation.DefinitionResolver.
+    /// </summary>
+    public class ConditionReferenceNode : ConditionNode
+    {
+        public string Name;
     }
 }
