@@ -113,14 +113,18 @@ namespace ParticleSim.SimulationEngine
                 bool moveConsumed = false;
                 if (_behaviors != null && _behaviors.TryGetValue(particle.Type, out TypeBehavior behavior))
                 {
-                    position = ProcessActions(particle, behavior.onStep, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
-
-                    foreach (OnTouchEvent touchEvent in behavior.onTouch)
-                    {
-                        if (!ConditionEvaluator.HasNeighbor(particle, _particleManager, touchEvent.direction)) continue;
-                        position = ProcessActions(particle, touchEvent.blocks, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
-                    }
-
+                    // onMessage first, then onTouch, then onStep — the
+                    // particle perceives what arrived (messages delivered by
+                    // DeliverPendingMessages above, at the very start of this
+                    // Step()) before deciding what to do, rather than
+                    // deciding first and only perceiving afterward. This is
+                    // what lets a message delivered this cycle influence
+                    // this same cycle's movement decision: onMessage may
+                    // update state (e.g. setState('stopped', true)) that
+                    // onStep's own condition reads moments later, in the
+                    // same Step() call — see CLAUDE.md's "Notable
+                    // non-obvious things" for why the order used to be the
+                    // other way around and what that cost.
                     foreach (OnMessageEvent messageEvent in behavior.onMessage)
                     {
                         // Once per matching message, not once per event —
@@ -131,6 +135,14 @@ namespace ParticleSim.SimulationEngine
                         foreach (Message message in ConditionEvaluator.MatchingMessages(particle, messageEvent.direction))
                             position = ProcessActions(particle, messageEvent.blocks, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position, currentMessage: message);
                     }
+
+                    foreach (OnTouchEvent touchEvent in behavior.onTouch)
+                    {
+                        if (!ConditionEvaluator.HasNeighbor(particle, _particleManager, touchEvent.direction)) continue;
+                        position = ProcessActions(particle, touchEvent.blocks, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
+                    }
+
+                    position = ProcessActions(particle, behavior.onStep, isOnInit: false, ref moveConsumed, ref anyActivity, startPosition: position);
                 }
                 desiredPositions[particle] = position;
                 attemptedMove[particle] = moveConsumed;

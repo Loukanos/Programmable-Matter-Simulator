@@ -434,55 +434,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6574164effb98b4085dc83e5cc72e53, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ParticleSim.SimulationManager
-  scenarioFileName: scenario.json
-  behaviorFileName: behavior.json
-  stepInterval: 0.6
-  autoStart: 0
-  boundaryMode: 1
-  cellSize: 1
-  cubeFill: 0.9
-  particleColor:
-    r: 0.2
-    g: 0.8
-    b: 1
-    a: 1
-  particleShader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
-  frameCameraOnStart: 1
-  moveAnimationDuration: 0.6
-  showGridBounds: 1
-  gridBoundsColor:
-    r: 0.5
-    g: 0.9
-    b: 1
-    a: 0.5
-  gridBoundsLineWidth: 0.04
-  _gridBounds: {fileID: 0}
-  showFloor: 0
-  floorColor:
-    r: 0.2
-    g: 0.2
-    b: 0.2
-    a: 1
-  floorMargin: 1
-  _floor: {fileID: 0}
-  _floorMaterial: {fileID: 0}
-  _scenario:
-    gridSize: 
-    maxCycles: 0
-    idleCyclesLimit: 5
-    particles: []
-  _gridSize: {x: 0, y: 0, z: 0}
-  _timer: 0
-  _running: 0
-  _particlesRoot: {fileID: 0}
-  _sharedMaterial: {fileID: 0}
-  _maxCycles: 0
-  _idleCyclesLimit: 0
-  _cycleCount: 0
-  _idleCount: 0
-  _finished: 0
-  _totalMovements: 0
-  _simulationTime: 0
 --- !u!4 &737045323
 Transform:
   m_ObjectHideFlags: 0
@@ -512,9 +463,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ParticleSim.UI.SimulationController
   scenarioFileName: scenario.json
   behaviorFileName: behavior.json
-  stepInterval: 1
+  stepInterval: 0.25
   autoStart: 0
-  boundaryMode: 2
   cellSize: 1
   cubeFill: 0.9
   particleColor: {r: 0.2, g: 0.8, b: 1, a: 1}
