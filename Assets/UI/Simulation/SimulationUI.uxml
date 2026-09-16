@@ -22,6 +22,9 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
         </ui:VisualElement>
 
         <ui:VisualElement name="systemBar" class="system-bar" picking-mode="Ignore">
+            <ui:VisualElement name="reframeButton" tooltip="Reenquadrar câmera (F)" class="sys-button reframe-sys-button">
+                <ui:VisualElement class="icon-reframe" picking-mode="Ignore" />
+            </ui:VisualElement>
             <ui:VisualElement name="fullscreenButton" tooltip="Tela Cheia" class="sys-button fullscreen-sys-button">
                 <ui:VisualElement class="icon-fullscreen" picking-mode="Ignore" />
             </ui:VisualElement>

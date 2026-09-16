@@ -251,6 +251,19 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     background-color: rgb(200, 70, 70);
 }
 
+/* Reframe: a plain square outline reads as a "frame the view" icon without needing an image asset. */
+.icon-reframe {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+    border-color: white;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.reframe-sys-button:hover {
+    background-color: rgb(55, 90, 150);
+}
+
 /* ---- Popups ---- */
 
 .popup-overlay {

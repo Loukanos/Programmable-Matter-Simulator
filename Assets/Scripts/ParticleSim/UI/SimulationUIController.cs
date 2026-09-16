@@ -36,6 +36,7 @@ namespace ParticleSim.UI
 
         private VisualElement _fullscreenButton;
         private VisualElement _quitButton;
+        private VisualElement _reframeButton;
         private VisualElement _quitPopup;
         private Button _confirmQuitButton;
         private Button _cancelQuitButton;
@@ -45,6 +46,7 @@ namespace ParticleSim.UI
         private Clickable _stopClickable;
         private Clickable _fullscreenClickable;
         private Clickable _quitClickable;
+        private Clickable _reframeClickable;
 
         private string _scenarioPath;
         private string _behaviorPath;
@@ -85,6 +87,7 @@ namespace ParticleSim.UI
 
             _fullscreenButton = root.Q<VisualElement>("fullscreenButton");
             _quitButton = root.Q<VisualElement>("quitButton");
+            _reframeButton = root.Q<VisualElement>("reframeButton");
             _quitPopup = root.Q<VisualElement>("quitPopup");
             _confirmQuitButton = root.Q<Button>("confirmQuitButton");
             _cancelQuitButton = root.Q<Button>("cancelQuitButton");
@@ -92,9 +95,10 @@ namespace ParticleSim.UI
             if (_runButton != null) _runButton.AddManipulator(_runClickable = new Clickable(OnRun));
             if (_pauseButton != null) _pauseButton.AddManipulator(_pauseClickable = new Clickable(OnPause));
             if (_stopButton != null) _stopButton.AddManipulator(_stopClickable = new Clickable(OnStop));
-            
+
             if (_fullscreenButton != null) _fullscreenButton.AddManipulator(_fullscreenClickable = new Clickable(OnToggleFullscreen));
             if (_quitButton != null) _quitButton.AddManipulator(_quitClickable = new Clickable(OnShowQuitPopup));
+            if (_reframeButton != null) _reframeButton.AddManipulator(_reframeClickable = new Clickable(OnReframe));
             if (_confirmQuitButton != null) _confirmQuitButton.clicked += OnConfirmQuit;
             if (_cancelQuitButton != null) _cancelQuitButton.clicked += OnCancelQuit;
 
@@ -124,6 +128,7 @@ namespace ParticleSim.UI
             
             if (_fullscreenButton != null && _fullscreenClickable != null) _fullscreenButton.RemoveManipulator(_fullscreenClickable);
             if (_quitButton != null && _quitClickable != null) _quitButton.RemoveManipulator(_quitClickable);
+            if (_reframeButton != null && _reframeClickable != null) _reframeButton.RemoveManipulator(_reframeClickable);
             if (_confirmQuitButton != null) _confirmQuitButton.clicked -= OnConfirmQuit;
             if (_cancelQuitButton != null) _cancelQuitButton.clicked -= OnCancelQuit;
 
@@ -135,6 +140,13 @@ namespace ParticleSim.UI
         private void OnToggleFullscreen()
         {
             Screen.fullScreen = !Screen.fullScreen;
+        }
+
+        private void OnReframe()
+        {
+            if (simulation == null) return;
+            simulation.FrameCamera();
+            SetStatus("Câmera reenquadrada.");
         }
 
         private void OnShowQuitPopup()

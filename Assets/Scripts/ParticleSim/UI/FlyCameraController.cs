@@ -66,6 +66,31 @@ namespace ParticleSim.UI
             HandleMovement();
         }
 
+        /// <summary>
+        /// Scales move speed (and the mouse-wheel adjustable min/max range)
+        /// to the diameter of the scene just loaded, so crossing a large
+        /// scenario doesn't feel glacially slow and a small one doesn't
+        /// overshoot on the first key press. Called by
+        /// <see cref="SimulationController.FrameCamera"/> right after it
+        /// computes the particle bounding box for camera framing — the two
+        /// share the same notion of "how big is this scene". Tuned to cross
+        /// the whole bounding box in about a second at the base speed (and
+        /// under half a second with the shift boost) — noticeably faster
+        /// than the previous flat default (8) even for a mid-sized scenario
+        /// like this project's own `scenario.json` (particle-occupied
+        /// diameter ≈ 13.7 → moveSpeed ≈ 13.7, not ≈ 6.8), since a scaling
+        /// factor tuned to reproduce the old default at "typical" scene
+        /// sizes made the feature nearly imperceptible there — exactly the
+        /// case most testing would hit first.
+        /// </summary>
+        public void ConfigureForSceneSize(float diameter)
+        {
+            diameter = Mathf.Max(diameter, 0.01f);
+            moveSpeed = Mathf.Clamp(diameter, 0.5f, 5000f);
+            minSpeed = Mathf.Max(0.1f, diameter * 0.04f);
+            maxSpeed = Mathf.Max(minSpeed * 5f, diameter * 6f);
+        }
+
         private void HandleLook()
         {
             Mouse mouse = Mouse.current;

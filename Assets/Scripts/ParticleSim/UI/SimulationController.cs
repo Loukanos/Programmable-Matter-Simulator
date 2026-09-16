@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using ParticleSim.Core;
 using ParticleSim.InputValidation;
 
@@ -32,6 +33,14 @@ namespace ParticleSim.UI
         public Shader particleShader;
         public bool frameCameraOnStart = true;
         public float moveAnimationDuration = 0.25f;
+
+        [Header("Camera framing")]
+        [Tooltip("Multiplier applied on top of the exact fit-to-view distance, so particles at the edge of the bounding box aren't flush against the edge of the screen.")]
+        [Range(1f, 2f)] public float cameraFramingPadding = 1.15f;
+        [Tooltip("When a scenario loads, also scale FlyCameraController's move speed to the scene's size.")]
+        public bool scaleFlySpeedToScene = true;
+        [Tooltip("Key that re-frames the camera on demand, without reloading.")]
+        public Key reframeKey = Key.F;
 
         [Header("Grid bounds")]
         public bool showGridBounds = true;
@@ -92,6 +101,12 @@ namespace ParticleSim.UI
             // run state, so it ticks even while paused/before Run is pressed
             // (matches the previous SimulationUIController-owned behavior).
             _metrics?.UpdateFrameRate(Time.unscaledDeltaTime);
+
+            // On-demand re-framing works regardless of run state — useful to
+            // recenter on a structure that has drifted out of view while
+            // paused, not just while running.
+            if (HasData && Keyboard.current != null && Keyboard.current[reframeKey].wasPressedThisFrame)
+                FrameCamera();
 
             if (!IsRunning) return;
 
@@ -218,18 +233,85 @@ namespace ParticleSim.UI
             _engine.ExecuteOnInit();
         }
 
-        private void FrameCamera()
+        /// <summary>
+        /// Positions the camera so every particle is visible, computed from
+        /// the particles' actual occupied bounding box — never the declared
+        /// gridSize, which in several scenarios is far larger than the
+        /// region particles actually use (e.g. a tall, mostly-empty grid;
+        /// framing by gridSize there would leave the real structure tiny on
+        /// screen). Uses the camera's real field of view/aspect to guarantee
+        /// the whole bounding sphere of that box fits in frame (see
+        /// <see cref="FramingDistance"/>), rather than a fixed distance
+        /// multiplier that could clip content depending on the scenario's
+        /// shape or the camera's aspect ratio. Also scales
+        /// <see cref="FlyCameraController"/>'s move speed to the scene's
+        /// size, so crossing a large scenario doesn't feel glacially slow
+        /// (and a small one doesn't overshoot on the first key press).
+        /// Public — and re-checked every frame against <see cref="reframeKey"/>
+        /// in <see cref="Update"/> — so the "reenquadrar" UI button and the
+        /// key shortcut can both call it on demand, mid-simulation, without
+        /// reloading (particles can drift well outside the initial framing
+        /// as a simulation runs).
+        /// </summary>
+        public void FrameCamera()
         {
             Camera cam = Camera.main;
             if (cam == null) return;
 
-            Vector3Int size = _particleManager.GridSize;
-            Vector3 center = new Vector3((size.x - 1) * 0.5f, (size.y - 1) * 0.5f, (size.z - 1) * 0.5f) * cellSize;
-            float extent = Mathf.Max(size.x, size.y, size.z) * cellSize;
-            Vector3 offset = new Vector3(0.9f, 0.8f, -1.2f).normalized * extent * 1.6f;
+            IReadOnlyList<Particle> particles = _particleManager.Particles;
+            if (particles.Count == 0) return;
 
-            cam.transform.position = center + offset;
+            Vector3Int min = particles[0].GridPosition;
+            Vector3Int max = min;
+            foreach (Particle particle in particles)
+            {
+                Vector3Int pos = particle.GridPosition;
+                if (pos.x < min.x) min.x = pos.x; else if (pos.x > max.x) max.x = pos.x;
+                if (pos.y < min.y) min.y = pos.y; else if (pos.y > max.y) max.y = pos.y;
+                if (pos.z < min.z) min.z = pos.z; else if (pos.z > max.z) max.z = pos.z;
+            }
+
+            // Padded by half a cell on each side (cells span integer coords,
+            // a particle's cube is centered on its cell), same convention
+            // GridBoundsRenderer already uses.
+            Vector3 worldMin = new Vector3(min.x - 0.5f, min.y - 0.5f, min.z - 0.5f) * cellSize;
+            Vector3 worldMax = new Vector3(max.x + 0.5f, max.y + 0.5f, max.z + 0.5f) * cellSize;
+            Vector3 center = (worldMin + worldMax) * 0.5f;
+            Vector3 extents = (worldMax - worldMin) * 0.5f;
+            float radius = Mathf.Max(extents.magnitude, cellSize * 0.5f);
+
+            float distance = FramingDistance(radius, cam.fieldOfView, cam.aspect, cameraFramingPadding);
+            Vector3 direction = new Vector3(0.9f, 0.8f, -1.2f).normalized;
+
+            cam.transform.position = center + direction * distance;
             cam.transform.LookAt(center);
+
+            if (scaleFlySpeedToScene)
+            {
+                FlyCameraController fly = cam.GetComponent<FlyCameraController>();
+                if (fly != null) fly.ConfigureForSceneSize(radius * 2f);
+            }
+        }
+
+        /// <summary>
+        /// Distance along the view axis at which a bounding sphere of the
+        /// given radius is fully contained by the camera's frustum, using
+        /// whichever of the vertical/horizontal field of view is narrower
+        /// (so it holds regardless of aspect ratio or which axis the scene
+        /// is longer along) — the standard "frame bounds" distance formula:
+        /// a sphere's angular radius as seen from the camera is
+        /// asin(radius / distance), so the sphere stays fully inside a
+        /// half-angle θ once distance ≥ radius / sin(θ). A pure function of
+        /// geometry (no Camera/Transform dependency), verified independently
+        /// against a sampled-frustum containment check before this was wired
+        /// into <see cref="FrameCamera"/>.
+        /// </summary>
+        internal static float FramingDistance(float radius, float verticalFovDegrees, float aspect, float padding)
+        {
+            float verticalHalfAngle = verticalFovDegrees * 0.5f * Mathf.Deg2Rad;
+            float horizontalHalfAngle = Mathf.Atan(Mathf.Tan(verticalHalfAngle) * aspect);
+            float limitingHalfAngle = Mathf.Min(verticalHalfAngle, horizontalHalfAngle);
+            return radius / Mathf.Sin(limitingHalfAngle) * padding;
         }
     }
 }
