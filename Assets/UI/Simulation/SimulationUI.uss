@@ -334,6 +334,14 @@ Button {
     text-overflow: ellipsis;
 }
 
+/* An emptied slot reads as absence rather than as a filename: muted and
+   italic, so "(nenhum arquivo)" is not mistaken for a file actually called
+   that. */
+.file-name--empty {
+    color: rgb(140, 146, 153);
+    -unity-font-style: italic;
+}
+
 .file-x {
     width: 38px;
     height: 100%;
@@ -414,6 +422,217 @@ Button {
 
 .load-button:hover {
     background-color: rgb(90, 142, 186);
+}
+
+/* ---- Parameter cards (live simulation/visual settings) ---- */
+
+/* Separated from the file cards above by a rule rather than just spacing,
+   since these controls act immediately while the file cards only take
+   effect on "Carregar simulação". */
+.param-card {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top-width: 1px;
+    border-top-color: rgb(74, 80, 88);
+}
+
+.param-row {
+    margin-bottom: 16px;
+}
+
+.param-head {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.param-label {
+    color: rgb(168, 174, 181);
+    font-size: 12px;
+}
+
+.param-value {
+    color: rgb(233, 236, 239);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.param-value:hover {
+    color: rgb(77, 126, 168);
+}
+
+/* Swapped in for .param-value while the value is being typed.
+   Deliberately almost unstyled — only the outer width is set, and nothing
+   inside the field is touched. An earlier version styled the field's inner
+   input (fixed `height: 22px`, padding, text-align, colours) and the field
+   then drew *no text at all*: confirmed by sampling the rendered field,
+   whose interior came back as 616 pixels of a single flat colour, with not
+   one anti-aliased glyph pixel among them. Not even the pre-filled value
+   showed. Pinning the height of the input container evidently collapses
+   the text element inside it, and the built-in field's own styling renders
+   correctly, so it is left alone. If this needs to match the panel better,
+   re-add properties ONE at a time and check each against a real render —
+   `background-color` first, never a height. */
+.param-input {
+    width: 90px;
+}
+
+.param-slider {
+    height: 18px;
+}
+
+/* Track and knob are both pinned to the midline of the same container
+   (top: 50% offset back by half their own height) instead of inheriting
+   whatever vertical placement the built-in theme computed for its own
+   default knob size. Resizing the knob was exactly what knocked it out of
+   line before — it ended up flush with the bottom of the track — and
+   centring each on 50% makes the alignment independent of both the theme's
+   defaults and of the sizes chosen here. */
+.param-slider .unity-base-slider__tracker {
+    height: 5px;
+    top: 50%;
+    margin-top: -2.5px;
+    background-color: rgb(58, 64, 70);
+    border-color: rgb(74, 80, 88);
+    border-width: 1px;
+    border-radius: 3px;
+}
+
+.param-slider .unity-base-slider__dragger {
+    width: 14px;
+    height: 14px;
+    top: 50%;
+    margin-top: -7px;
+    border-radius: 7px;
+    border-width: 0;
+    background-color: rgb(77, 126, 168);
+}
+
+.param-slider .unity-base-slider__dragger:hover {
+    background-color: rgb(103, 152, 194);
+}
+
+.param-toggle {
+    margin-top: 2px;
+}
+
+/* min-width defeats the 120px that the base-field label style reserves for
+   Inspector-style alignment, which this panel doesn't want; padding-left: 0
+   lines this label up with the plain .param-label rows above it, which start
+   flush at the card's edge. */
+.param-toggle .unity-label {
+    color: rgb(168, 174, 181);
+    font-size: 12px;
+    padding-left: 0;
+    min-width: 0;
+}
+
+/* Puts the checkmark hard right, matching the sliders' value readouts and
+   the colour buttons. The field's input area already grows to fill the row
+   (that's the base-field default), so the checkmark would otherwise sit at
+   its left edge, immediately after the text, instead of at the row's end —
+   which is exactly what made this row look out of line with the others. */
+.param-toggle .unity-toggle__input {
+    flex-grow: 1;
+    justify-content: flex-end;
+}
+
+/* The checkmark is styled through background-color and border only —
+   never background-image. The built-in theme draws the tick itself as a
+   background-image that appears on :checked, so replacing the image would
+   leave the checked state with nothing to show; setting only the colour
+   behind it keeps that tick intact and just recolours the box around it.
+   The tint keeps the tick legible against the accent fill. */
+.param-toggle .unity-toggle__checkmark {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    background-color: rgb(58, 64, 70);
+    -unity-background-image-tint-color: rgb(233, 236, 239);
+}
+
+.param-toggle:hover .unity-toggle__checkmark {
+    border-color: rgb(77, 126, 168);
+}
+
+.param-toggle:checked .unity-toggle__checkmark {
+    background-color: rgb(77, 126, 168);
+    border-color: rgb(77, 126, 168);
+}
+
+/* Basic-color picker. The button shows the colour currently in effect and
+   opens a popup; the swatches live in that popup, built in C#
+   (SimulationUIController owns the palette) so the colour list exists in
+   exactly one place instead of being duplicated between a USS class per
+   colour and a C# Color per swatch. Adding a colour is one array entry,
+   and the popup grid wraps to fit however many there are. These rules only
+   cover shape and spacing. */
+.color-button {
+    width: 56px;
+    height: 24px;
+    padding: 0;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+}
+
+.color-button:hover {
+    border-color: rgb(233, 236, 239);
+}
+
+/* 320px minus the dialog's 30px padding leaves 260px of content, which fits
+   five 36px swatches plus their 4px margins per row. */
+.color-dialog {
+    width: 320px;
+}
+
+/* width: 100% is what makes flex-wrap work at all here — the dialog centers
+   its children rather than stretching them, so without an explicit width
+   this grid would size to its content, never hit a wrap boundary, and run
+   all the swatches into one row past the dialog's edge. Constrained to the
+   dialog's content width it wraps at four per row and grows downward as
+   colours are added to the palette. */
+.swatch-grid {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.swatch {
+    width: 36px;
+    height: 36px;
+    margin: 4px;
+    padding: 0;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+}
+
+.swatch:hover {
+    border-color: rgb(233, 236, 239);
+}
+
+/* Deliberately not reusing .popup-button here: that class carries flex: 1
+   for the side-by-side pair in the quit dialog, and this button is a direct
+   child of a column, where flex-grow would stretch it down the dialog. */
+.color-cancel-button {
+    width: 100%;
+    height: 40px;
+    border-radius: 8px;
+    border-width: 0;
+    color: rgb(255, 255, 255);
+    font-size: 14px;
+    -unity-font-style: bold;
+    background-color: rgb(75, 75, 85);
+}
+
+.color-cancel-button:hover {
+    background-color: rgb(90, 90, 105);
 }
 
 .status-label {

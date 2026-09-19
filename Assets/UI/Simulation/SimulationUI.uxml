@@ -102,7 +102,67 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 
                 <ui:Button name="loadButton" text="Carregar simulação" class="load-button" />
                 <ui:Label name="statusLabel" text="" class="status-label" />
+
+                <ui:VisualElement class="param-card">
+                    <ui:Label text="SIMULAÇÃO" class="file-card-title" />
+                    <ui:VisualElement class="param-row">
+                        <ui:VisualElement class="param-head">
+                            <ui:Label text="Intervalo entre ciclos" class="param-label" />
+                            <ui:Label name="stepIntervalValue" tooltip="Clique para digitar" text="—" class="param-value" />
+                            <ui:TextField name="stepIntervalInput" class="param-input hidden" />
+                        </ui:VisualElement>
+                        <ui:Slider name="stepIntervalSlider" low-value="0" high-value="2" class="param-slider" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="param-card">
+                    <ui:Label text="VISUALIZAÇÃO" class="file-card-title" />
+
+                    <ui:VisualElement class="param-row">
+                        <ui:VisualElement class="param-head">
+                            <ui:Label text="Preenchimento do cubo" class="param-label" />
+                            <ui:Label name="cubeFillValue" tooltip="Clique para digitar" text="—" class="param-value" />
+                            <ui:TextField name="cubeFillInput" class="param-input hidden" />
+                        </ui:VisualElement>
+                        <ui:Slider name="cubeFillSlider" low-value="0.1" high-value="1" class="param-slider" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="param-row">
+                        <ui:VisualElement class="param-head">
+                            <ui:Label text="Duração da animação" class="param-label" />
+                            <ui:Label name="moveDurationValue" tooltip="Clique para digitar" text="—" class="param-value" />
+                            <ui:TextField name="moveDurationInput" class="param-input hidden" />
+                        </ui:VisualElement>
+                        <ui:Slider name="moveDurationSlider" low-value="0" high-value="1" class="param-slider" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="param-row">
+                        <ui:VisualElement class="param-head">
+                            <ui:Label text="Cor das partículas" class="param-label" />
+                            <ui:Button name="particleColorButton" tooltip="Escolher cor" class="color-button" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="param-row">
+                        <ui:VisualElement class="param-head">
+                            <ui:Label text="Cor dos limites" class="param-label" />
+                            <ui:Button name="gridColorButton" tooltip="Escolher cor" class="color-button" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="param-row">
+                        <ui:Toggle name="showGridBoundsToggle" label="Mostrar limites da grade" class="param-toggle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:ScrollView>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="colorPopup" class="popup-overlay hidden" picking-mode="Position">
+            <ui:VisualElement class="popup-dialog color-dialog">
+                <ui:Label name="colorPopupTitle" text="Escolher cor" class="popup-title" />
+                <ui:VisualElement name="colorPopupSwatches" class="swatch-grid" />
+                <ui:Button name="colorPopupCancelButton" text="Cancelar" class="color-cancel-button" />
+            </ui:VisualElement>
         </ui:VisualElement>
 
         <ui:VisualElement name="quitPopup" class="popup-overlay hidden" picking-mode="Position">

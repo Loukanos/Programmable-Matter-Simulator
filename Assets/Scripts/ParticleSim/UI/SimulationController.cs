@@ -211,6 +211,77 @@ namespace ParticleSim.UI
             return mat;
         }
 
+        // ---------- Live visual/pacing settings ----------
+        // These six fields are serialized and so appear in the Inspector, but
+        // five of them are only *read* while building (BuildViews /
+        // BuildGridBounds), so editing them there during Play Mode does
+        // nothing until the next load. The setters below are what make them
+        // actually live for the UI: each one writes the field and then
+        // re-applies it to whatever already exists. None of them touch
+        // simulation state — no particle position, internal state, cycle
+        // count or metric is read or written here, so changing any of them
+        // mid-run cannot alter the outcome of a scenario.
+
+        /// <summary>Seconds between cycles. Already live: <see cref="Update"/> reads it every frame.</summary>
+        public void SetStepInterval(float seconds)
+        {
+            stepInterval = Mathf.Max(0f, seconds);
+        }
+
+        /// <summary>Cube size as a fraction of a cell. Rescales the existing cubes in place.</summary>
+        public void SetCubeFill(float fill)
+        {
+            cubeFill = Mathf.Clamp(fill, 0.1f, 1f);
+            foreach (ParticleView view in _views.Values)
+                view.transform.localScale = Vector3.one * cellSize * cubeFill;
+        }
+
+        /// <summary>
+        /// Default particle color. Updates the shared material (so anything
+        /// still rendering straight from it follows) and each view's fallback
+        /// color. Particles currently colored by their own `setColor()` keep
+        /// that color — see <see cref="ParticleView.SetBaseColor"/>.
+        /// </summary>
+        public void SetParticleColor(Color color)
+        {
+            particleColor = color;
+
+            if (_sharedMaterial != null)
+            {
+                if (_sharedMaterial.HasProperty("_BaseColor")) _sharedMaterial.SetColor("_BaseColor", color);
+                if (_sharedMaterial.HasProperty("_Color")) _sharedMaterial.SetColor("_Color", color);
+            }
+
+            foreach (ParticleView view in _views.Values)
+                view.SetBaseColor(color);
+        }
+
+        /// <summary>Seconds a cube takes to slide between cells. Applies to in-flight animations too.</summary>
+        public void SetMoveAnimationDuration(float seconds)
+        {
+            moveAnimationDuration = Mathf.Max(0f, seconds);
+            foreach (ParticleView view in _views.Values)
+                view.SetMoveDuration(moveAnimationDuration);
+        }
+
+        /// <summary>
+        /// Shows/hides the grid wireframe. Rebuilds only the bounds object —
+        /// <see cref="BuildGridBounds"/> destroys and recreates one decorative
+        /// GameObject and never touches particles or the engine.
+        /// </summary>
+        public void SetShowGridBounds(bool show)
+        {
+            showGridBounds = show;
+            if (HasData) BuildGridBounds();
+        }
+
+        /// <summary>Grid wireframe color. Same cheap rebuild as <see cref="SetShowGridBounds"/>.</summary>
+        public void SetGridBoundsColor(Color color)
+        {
+            gridBoundsColor = color;
+            if (HasData) BuildGridBounds();
+        }
+
         public void Run() => _engine.Run();
         public void Pause() => _engine.Pause();
 
