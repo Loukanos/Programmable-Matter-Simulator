@@ -16,8 +16,13 @@ namespace ParticleSim.UI
         /// Builds the wireframe box that encloses every grid cell.
         /// Cells span integer coords 0..gridSize-1; the box is padded by half a
         /// cell on each side so the cubes sit neatly inside.
+        /// <paramref name="shader"/> comes from <see cref="SimulationController.gridBoundsShader"/>
+        /// rather than being resolved here: this component is created at runtime with
+        /// AddComponent, so it has no Inspector slot of its own to hold a serialized shader
+        /// reference — and a serialized reference is the only thing that keeps the shader from
+        /// being stripped out of a build (see <see cref="CreateLineMaterial"/>).
         /// </summary>
-        public void Build(Vector3Int gridSize, float cellSize, Color color, float lineWidth)
+        public void Build(Vector3Int gridSize, float cellSize, Color color, float lineWidth, Shader shader = null)
         {
             if (_line == null)
                 _line = GetComponent<LineRenderer>();
@@ -59,7 +64,7 @@ namespace ParticleSim.UI
             _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _line.receiveShadows = false;
 
-            _line.material = CreateLineMaterial(color);
+            _line.material = CreateLineMaterial(color, shader);
             _line.startColor = color;
             _line.endColor = color;
 
@@ -67,13 +72,28 @@ namespace ParticleSim.UI
             _line.SetPositions(points);
         }
 
-        private static Material CreateLineMaterial(Color color)
+        /// <summary>
+        /// Prefers the shader handed in from the scene, because only a serialized reference
+        /// guarantees the shader is in the build: `Shader.Find` finds nothing that was
+        /// stripped, and a shader no asset references gets stripped. The `Shader.Find` chain
+        /// below is a fallback, and a misleading one — it "worked" in builds purely because
+        /// `Sprites/Default` happens to sit in Graphics settings' always-included list, so the
+        /// wireframe silently rendered through a sprite shader in players while the Editor
+        /// used URP/Unlit. That never went magenta, so unlike the particles it produced no
+        /// obvious symptom, just a quiet difference between Editor and build.
+        /// </summary>
+        private static Material CreateLineMaterial(Color color, Shader preferredShader)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            Shader shader = preferredShader;
+            if (shader == null)
+                shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null)
                 shader = Shader.Find("Sprites/Default");
             if (shader == null)
                 shader = Shader.Find("Unlit/Color");
+
+            if (preferredShader == null)
+                Debug.LogWarning($"[{nameof(GridBoundsRenderer)}] Sem shader serializado — atribua '{nameof(SimulationController.gridBoundsShader)}' no Inspector do {nameof(SimulationController)}. Em builds o contorno cai num shader de reserva e pode não ficar igual ao Editor.");
 
             var mat = new Material(shader);
             if (mat.HasProperty("_BaseColor"))

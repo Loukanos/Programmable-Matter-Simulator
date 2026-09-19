@@ -468,12 +468,13 @@ MonoBehaviour:
   cellSize: 1
   cubeFill: 0.9
   particleColor: {r: 0.2, g: 0.8, b: 1, a: 1}
-  particleShader: {fileID: 0}
+  particleShader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   frameCameraOnStart: 1
   moveAnimationDuration: 0.25
   showGridBounds: 1
   gridBoundsColor: {r: 0.5, g: 0.9, b: 1, a: 0.5}
   gridBoundsLineWidth: 0.04
+  gridBoundsShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

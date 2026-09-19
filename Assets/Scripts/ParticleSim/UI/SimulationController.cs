@@ -46,6 +46,8 @@ namespace ParticleSim.UI
         public bool showGridBounds = true;
         public Color gridBoundsColor = new Color(0.5f, 0.9f, 1f, 0.5f);
         public float gridBoundsLineWidth = 0.04f;
+        [Tooltip("Keep assigned (URP/Unlit). Like particleShader, this serialized reference is what keeps the shader in the build — GridBoundsRenderer is created at runtime and has no Inspector slot of its own.")]
+        public Shader gridBoundsShader;
 
         private readonly ParticleManager.ParticleManager _particleManager = new ParticleManager.ParticleManager();
         private SimulationEngine.SimulationEngine _engine;
@@ -197,13 +199,27 @@ namespace ParticleSim.UI
             var boundsGo = new GameObject("GridBounds");
             boundsGo.transform.SetParent(transform, false);
             _gridBounds = boundsGo.AddComponent<GridBoundsRenderer>();
-            _gridBounds.Build(_particleManager.GridSize, cellSize, gridBoundsColor, gridBoundsLineWidth);
+            _gridBounds.Build(_particleManager.GridSize, cellSize, gridBoundsColor, gridBoundsLineWidth, gridBoundsShader);
         }
 
+        /// <summary>
+        /// Builds the shared particle material. **Keep `particleShader` assigned in the
+        /// Inspector.** `Shader.Find` only finds shaders that are actually in the build, and a
+        /// shader nothing references gets stripped — so the `Shader.Find` path below works in
+        /// the Editor (where every shader is loaded) and then silently fails in a player,
+        /// landing on the magenta error shader, which ignores the colors set on it. That is
+        /// exactly what happened once: the scene's serialized reference to URP/Lit was dropped
+        /// along with a duplicate component, and every particle turned pink in builds only.
+        /// A serialized reference is what guarantees the shader survives into the build; the
+        /// error below exists so the next occurrence is one console line instead of a hunt.
+        /// </summary>
         private Material CreateParticleMaterial()
         {
             Shader shader = particleShader != null ? particleShader
                 : (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+
+            if (shader == null)
+                Debug.LogError($"[{nameof(SimulationController)}] Shader das partículas não encontrado — atribua '{nameof(particleShader)}' no Inspector. Em builds, Shader.Find só acha shaders incluídos, então as partículas vão aparecer em rosa (shader de erro).", this);
 
             var mat = new Material(shader != null ? shader : Shader.Find("Hidden/InternalErrorShader"));
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", particleColor);
