@@ -6,6 +6,30 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 2026-06-04 AI-Tag
 This was created with the help of Assistant, a Unity Artificial Intelligence product.
 */
+/* ---- Reset ----
+   Unity's built-in runtime theme (imported by SimulationTheme.tss via
+   `unity-theme://default`) applies its own margins to Label and Button —
+   roughly 3px per side. Left in place, they silently offset every
+   Label-based row from every Button-based row, which is what made the
+   file rows look misaligned: the name box (a Label) sat ~3px lower and
+   ~3px further right than the buttons around it, while the remove button
+   (a Button) sat ~3px in from the right edge because only three of its
+   four margin sides had been zeroed. Reset both once, here, so every
+   position below is determined by this file rather than by theme
+   defaults; components opt back in to whatever spacing they need. */
+Label,
+Button {
+    margin: 0;
+}
+
+/* Single way to hide/show anything in this UI. Visibility lives in the
+   class list (toggled with EnableInClassList) rather than in inline
+   styles, so the USS stays the one place that decides what "hidden"
+   means and C# never writes style values directly. */
+.hidden {
+    display: none;
+}
+
 .root {
     position: absolute;
     top: 0;
@@ -14,7 +38,9 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     bottom: 0;
 }
 
-.top-bar {
+/* ---- Floating transport / view controls (centered over the viewport) ---- */
+
+.floating-controls-wrap {
     position: absolute;
     top: 14px;
     left: 0;
@@ -23,61 +49,92 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     justify-content: center;
 }
 
-.ctrl-button {
-    width: 56px;
-    height: 56px;
-    margin-left: 8px;
-    margin-right: 8px;
+.floating-controls {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    background-color: rgba(43, 47, 52, 0.85);
+}
+
+.controls-separator {
+    width: 1px;
+    align-self: stretch;
+    margin-left: 6px;
+    margin-right: 6px;
+    background-color: rgb(74, 80, 88);
+}
+
+/* ---- Shared icon-button base: every icon button (transport, ampliar,
+   focar câmera, tela cheia, fechar) is the same size and shape. ---- */
+
+.icon-button {
+    width: 40px;
+    height: 40px;
+    margin-left: 4px;
+    margin-right: 4px;
     padding: 0;
-    border-radius: 28px;
-    border-width: 0;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    background-color: rgb(58, 64, 70);
     align-items: center;
     justify-content: center;
-    background-color: rgb(60, 60, 70);
+    transition-duration: 0.15s;
 }
 
-.ctrl-button:hover {
-    background-color: rgb(80, 80, 95);
+/* background-color is repeated in the hover/active rules on purpose:
+   these are real Buttons, so Unity's built-in theme ships its own
+   :hover/:active background for them. Restating ours here keeps the
+   theme from deciding the colour out from under us. */
+.icon-button:hover {
+    background-color: rgb(58, 64, 70);
+    border-color: rgb(77, 126, 168);
 }
 
-.ctrl-button:active {
-    background-color: rgb(45, 45, 55);
+.icon-button:active {
+    background-color: rgb(45, 48, 53);
+    border-color: rgb(77, 126, 168);
 }
 
 .run-button {
-    background-color: rgb(46, 160, 87);
+    background-color: rgb(77, 126, 168);
+    border-color: rgb(77, 126, 168);
 }
 
 .run-button:hover {
-    background-color: rgb(56, 180, 100);
+    background-color: rgb(90, 142, 186);
+    border-color: rgb(90, 142, 186);
 }
 
-.pause-button {
-    background-color: rgb(210, 160, 40);
+.quit-button:hover {
+    border-color: rgb(217, 119, 106);
 }
 
-.pause-button:hover {
-    background-color: rgb(230, 180, 55);
-}
+/* ---- Button icons (drawn with shapes, not text/emoji) ---- */
 
-.stop-button {
-    background-color: rgb(200, 70, 70);
-}
-
-.stop-button:hover {
-    background-color: rgb(220, 85, 85);
-}
-
-/* ---- Button icons (drawn with shapes, not text) ---- */
-
-/* Play: right-pointing triangle via border trick */
+/* Play: right-pointing triangle via border trick, optically centered.
+   A right-pointing isosceles triangle's centroid sits 1/3 of its width
+   from the flat edge, so geometric centering reads as shifted left. The
+   nudge needed is (width/2 - width/3) = width/6, doubled to width/3
+   because a flex container centers the item's *margin* box, so half of an
+   asymmetric margin-left is reabsorbed into the centering gap.
+   SIZE CONSTRAINT — the triangle's total footprint is
+   border-left-width + margin-left = 4/3 * width, and it must stay under
+   .icon-button's 38px content box (40px minus its 1px borders), so width
+   must not exceed ~28px. A previous pass set width 32 + margin 16 = 48px,
+   which silently overflowed the button by 10px (UI Toolkit defaults to
+   overflow: visible, so it spilled outside the blue button rather than
+   clipping). Keep 4/3 * border-left-width <= 38 when resizing this. */
 .icon-play {
     width: 0;
     height: 0;
-    margin-left: 4px;
-    border-top-width: 12px;
-    border-bottom-width: 12px;
-    border-left-width: 20px;
+    margin-left: 8px;
+    border-top-width: 10px;
+    border-bottom-width: 10px;
+    border-left-width: 26px;
     border-right-width: 0;
     border-top-color: rgba(0, 0, 0, 0);
     border-bottom-color: rgba(0, 0, 0, 0);
@@ -93,175 +150,340 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 }
 
 .pause-bar {
-    width: 6px;
-    height: 24px;
-    margin-left: 3px;
-    margin-right: 3px;
+    width: 5px;
+    height: 18px;
+    margin-left: 2.5px;
+    margin-right: 2.5px;
     border-radius: 2px;
     background-color: rgb(255, 255, 255);
 }
 
 /* Stop: square */
 .icon-stop {
-    width: 22px;
-    height: 22px;
+    width: 17px;
+    height: 17px;
     border-radius: 3px;
     background-color: rgb(255, 255, 255);
 }
 
-/* ---- File panel ---- */
+/* Expand/collapse sidebar: two opposite open corner brackets, each built
+   from two solid filled bars (same plain-rectangle technique as
+   .pause-bar/.icon-stop below) rather than border-width tricks — a filled
+   rectangle can't render asymmetrically the way two nominally-equal
+   border edges on opposite corners of an element apparently can. */
+.icon-expand {
+    width: 18px;
+    height: 18px;
+    position: relative;
+}
+
+.expand-bar {
+    position: absolute;
+    background-color: rgb(255, 255, 255);
+}
+
+/* 3px-thick bars (up from 2px) — at 2px, a +-1px sub-pixel rounding
+   difference between two nominally-identical elements reads as a 50%
+   thickness difference (one corner visibly bolder than the other, even
+   with matching USS values); at 3px the same +-1px rounding is a much
+   less noticeable ~33%. */
+.expand-bar-tl-h {
+    top: 0;
+    left: 0;
+    width: 9px;
+    height: 3px;
+}
+
+.expand-bar-tl-v {
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 9px;
+}
+
+/* Mirrored via explicit top/left offsets (18px container) rather than
+   bottom/right — the bottom-right corner rendered broken when anchored
+   with bottom/right, so both corners now use the same top/left anchoring
+   that already worked correctly for the top-left one. */
+.expand-bar-br-h {
+    top: 15px;
+    left: 9px;
+    width: 9px;
+    height: 3px;
+}
+
+.expand-bar-br-v {
+    top: 9px;
+    left: 15px;
+    width: 3px;
+    height: 9px;
+}
+
+/* Focar câmera: camera silhouette — outlined body + centered lens circle,
+   thin stroke, unfilled (per spec). */
+.icon-camera {
+    width: 20px;
+    height: 14px;
+    border-radius: 3px;
+    border-width: 1.5px;
+    border-color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0);
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-camera-lens {
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+    border-width: 1.5px;
+    border-color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* ---- Sidebar (configuration panel) ---- */
 
 .file-panel {
     position: absolute;
-    top: 84px;
-    right: 18px;
+    top: 0;
+    right: 0;
+    bottom: 0;
     width: 360px;
-    padding: 22px;
-    border-radius: 12px;
-    background-color: rgba(25, 25, 30, 0.92);
+    flex-direction: column;
+    background-color: rgb(51, 56, 61);
+    border-left-width: 1px;
+    border-left-color: rgb(74, 80, 88);
 }
 
-.panel-title {
-    color: rgb(255, 255, 255);
-    font-size: 22px;
-    -unity-font-style: bold;
-    margin-bottom: 16px;
+.sidebar-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    padding-left: 16px;
+    padding-right: 10px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(74, 80, 88);
 }
 
-.field-label {
-    color: rgb(185, 190, 200);
-    font-size: 15px;
-    -unity-font-style: bold;
-    margin-bottom: 6px;
-}
-
-.file-button {
-    height: 44px;
-    border-radius: 8px;
-    border-width: 0;
-    color: rgb(255, 255, 255);
-    font-size: 15px;
-    background-color: rgb(55, 90, 150);
-    margin-bottom: 6px;
-}
-
-.file-button:hover {
-    background-color: rgb(70, 110, 175);
-}
-
-.path-label {
-    color: rgb(160, 165, 175);
-    font-size: 14px;
-    white-space: normal;
-    margin-bottom: 18px;
-}
-
-.load-button {
-    height: 50px;
-    border-radius: 10px;
-    border-width: 0;
-    color: rgb(255, 255, 255);
-    font-size: 17px;
-    -unity-font-style: bold;
-    background-color: rgb(46, 160, 87);
-    margin-top: 6px;
-}
-
-.load-button:hover {
-    background-color: rgb(56, 180, 100);
-}
-
-.status-label {
-    color: rgb(205, 205, 95);
-    font-size: 14px;
-    white-space: normal;
-    margin-top: 12px;
-}
-
-/* Provisional: shows validation errors that blocked a load. Hidden while empty. */
-.error-label {
-    color: rgb(240, 130, 130);
+.sidebar-title {
+    color: rgb(233, 236, 239);
     font-size: 12px;
-    white-space: normal;
-    margin-top: 8px;
-    display: none;
-}
-
-/* ---- Stats panel ---- */
-
-.stats-panel {
-    position: absolute;
-    top: 14px;
-    left: 14px;
-    padding: 12px;
-    border-radius: 8px;
-    background-color: rgba(25, 25, 30, 0.7);
-}
-
-.stats-label {
-    color: white;
-    font-size: 14px;
     -unity-font-style: bold;
-    margin-bottom: 2px;
 }
 
-/* ---- System Bar (Top Right) ---- */
-
-.system-bar {
-    position: absolute;
-    top: 14px;
-    right: 18px;
+.sidebar-head-right {
     flex-direction: row;
 }
 
-.sys-button {
-    width: 44px;
-    height: 44px;
-    margin-left: 10px;
-    border-radius: 8px;
-    background-color: rgba(60, 60, 70, 0.8);
+.side-body {
+    flex-grow: 1;
+}
+
+.side-body .unity-scroll-view__content-container {
+    padding: 18px;
+}
+
+.file-card {
+    margin-bottom: 22px;
+}
+
+.file-card-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(233, 236, 239);
+    margin-bottom: 8px;
+}
+
+.field-label {
+    color: rgb(168, 174, 181);
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-bottom: 6px;
+}
+
+/* The row owns the height; both children fill it (height: 100%), so the
+   remove button can't desync from the name box — the spec's explicit
+   requirement — and there's only one number to change. `align-items:
+   center` is the backstop that keeps the two aligned even if their
+   heights ever diverge again. (The margins that used to offset them are
+   handled by the Label/Button reset at the top of this file.) */
+.file-row {
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    transition-duration: 0.15s;
+    height: 40px;
+    margin-bottom: 8px;
 }
 
-.sys-button:hover {
-    background-color: rgb(80, 80, 95);
+.file-name {
+    flex-grow: 1;
+    height: 100%;
+    font-size: 13px;
+    color: rgb(233, 236, 239);
+    background-color: rgb(58, 64, 70);
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    border-radius: 5px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 11px;
+    padding-right: 11px;
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.sys-button:active {
-    background-color: rgb(45, 45, 55);
+.file-x {
+    width: 38px;
+    height: 100%;
+    margin-left: 8px;
+    padding: 0;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    background-color: rgb(58, 64, 70);
+    color: rgb(217, 119, 106);
+    font-size: 15px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
 }
+
+.file-x:hover {
+    border-color: rgb(217, 119, 106);
+}
+
+/* Padding-driven height rather than a fixed one, but tuned to land on the
+   same 40px as .file-row above it so the two read as one stack. */
+.load-btn {
+    width: 100%;
+    margin: 0;
+    padding-top: 11px;
+    padding-bottom: 11px;
+    padding-left: 11px;
+    padding-right: 11px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(168, 174, 181);
+    font-size: 13px;
+    -unity-text-align: middle-left;
+}
+
+.load-btn:hover {
+    border-color: rgb(77, 126, 168);
+    color: rgb(77, 126, 168);
+}
+
+/* Fixed-height, independently scrollable error box per file. Starts with
+   the `hidden` class in the UXML and is shown only when its own file has
+   an error. */
+.err-box {
+    height: 90px;
+    margin-top: 6px;
+    background-color: rgb(58, 64, 70);
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    border-radius: 5px;
+}
+
+.err-box .unity-scroll-view__content-container {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.error-label {
+    color: rgb(217, 119, 106);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.load-button {
+    height: 46px;
+    border-radius: 8px;
+    border-width: 0;
+    color: rgb(255, 255, 255);
+    font-size: 15px;
+    -unity-font-style: bold;
+    background-color: rgb(77, 126, 168);
+    margin-top: 4px;
+}
+
+.load-button:hover {
+    background-color: rgb(90, 142, 186);
+}
+
+.status-label {
+    color: rgb(212, 169, 79);
+    font-size: 12px;
+    white-space: normal;
+    margin-top: 10px;
+    -unity-text-align: middle-center;
+}
+
+/* ---- Indicators panel (top-left, over the viewport) ---- */
+
+.stats-panel {
+    position: absolute;
+    top: 70px;
+    left: 18px;
+    width: 190px;
+    background-color: rgb(58, 64, 70);
+    border-width: 1px;
+    border-color: rgb(74, 80, 88);
+    border-radius: 6px;
+}
+
+.indicators-head {
+    color: rgb(233, 236, 239);
+    font-size: 11px;
+    -unity-font-style: bold;
+    padding: 10px 12px 8px 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(74, 80, 88);
+}
+
+.indicators-body {
+    padding: 8px 12px 10px 12px;
+}
+
+.indicators-divider {
+    border-top-width: 1px;
+    border-top-color: rgb(74, 80, 88);
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.particle-count-label {
+    color: rgb(233, 236, 239);
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+
+.stats-label {
+    color: rgb(168, 174, 181);
+    font-size: 11px;
+    -unity-font-style: normal;
+    margin-bottom: 2.5px;
+}
+
+/* ---- Sidebar icons that still use image assets (unchanged) ---- */
 
 .icon-fullscreen {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     background-image: url("project://database/Assets/UI/Icons/fullscreen.svg");
     -unity-background-image-tint-color: white;
 }
 
 .icon-quit {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     background-image: url("project://database/Assets/UI/Icons/quit.svg");
     -unity-background-image-tint-color: white;
-}
-
-.quit-sys-button:hover {
-    background-color: rgb(200, 70, 70);
-}
-
-/* Reframe: a plain square outline reads as a "frame the view" icon without needing an image asset. */
-.icon-reframe {
-    width: 18px;
-    height: 18px;
-    border-width: 2px;
-    border-color: white;
-    background-color: rgba(0, 0, 0, 0);
-}
-
-.reframe-sys-button:hover {
-    background-color: rgb(55, 90, 150);
 }
 
 /* ---- Popups ---- */
@@ -275,7 +497,6 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     background-color: rgba(0, 0, 0, 0.75);
     align-items: center;
     justify-content: center;
-    display: none; /* Hidden by default */
 }
 
 .popup-dialog {

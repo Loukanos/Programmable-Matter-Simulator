@@ -6,24 +6,63 @@ namespace ParticleSim.UI
 {
     /// <summary>
     /// Wires the UI Toolkit controls to the <see cref="SimulationController"/>:
-    /// Run / Pause / Reset buttons plus native file pickers that let the user
-    /// load their own scenario and behavior JSON files.
+    /// transport buttons (run / pause / stop), camera framing, the sidebar
+    /// toggle, and the native file pickers that let the user load their own
+    /// scenario and behavior JSON files.
+    ///
+    /// Every clickable control is a real <see cref="Button"/> rather than a
+    /// <see cref="VisualElement"/> with a hand-attached <see cref="Clickable"/>:
+    /// Button already contains one, and it additionally brings focus handling
+    /// and keyboard activation, so the transport controls are reachable without
+    /// a mouse. It also means there are no manipulators to store and detach —
+    /// unsubscribing a `clicked` delegate is enough.
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public class SimulationUIController : MonoBehaviour
     {
+        /// <summary>USS class that hides an element; see `.hidden` in SimulationUI.uss.</summary>
+        private const string HiddenClass = "hidden";
+
+        /// <summary>
+        /// Indicators refresh on a fixed interval rather than every frame.
+        /// Each refresh builds ten interpolated strings, so at the frame rates
+        /// this project actually hits (800+ FPS with a small scenario) a
+        /// per-frame refresh meant thousands of throwaway strings per second —
+        /// avoidable GC churn in the one panel whose job is to report this
+        /// project's own performance indicators. 10 Hz is also simply more
+        /// readable: digits changing 800 times a second are a blur, not a
+        /// measurement.
+        /// </summary>
+        private const float StatsRefreshInterval = 0.1f;
+
         [SerializeField] private SimulationController simulation;
 
-        private VisualElement _runButton;
-        private VisualElement _pauseButton;
-        private VisualElement _stopButton;
+        private Button _runButton;
+        private Button _pauseButton;
+        private Button _stopButton;
+        private Button _reframeButton;
+        private Button _expandButton;
+        private Button _fullscreenButton;
+        private Button _quitButton;
         private Button _scenarioButton;
         private Button _behaviorButton;
+        private Button _scenarioXButton;
+        private Button _behaviorXButton;
         private Button _loadButton;
+        private Button _confirmQuitButton;
+        private Button _cancelQuitButton;
+
+        private VisualElement _filePanel;
+        private VisualElement _quitPopup;
+        private ScrollView _scenarioErrorBox;
+        private ScrollView _behaviorErrorBox;
+
         private Label _scenarioPathLabel;
         private Label _behaviorPathLabel;
         private Label _statusLabel;
-        private Label _errorLabel;
+        private Label _scenarioErrorLabel;
+        private Label _behaviorErrorLabel;
+        private Label _particleCountLabel;
         private Label _movementsLabel;
         private Label _collisionsLabel;
         private Label _invalidMovementsLabel;
@@ -34,22 +73,19 @@ namespace ParticleSim.UI
         private Label _messagesSentLabel;
         private Label _messagesDeliveredLabel;
 
-        private VisualElement _fullscreenButton;
-        private VisualElement _quitButton;
-        private VisualElement _reframeButton;
-        private VisualElement _quitPopup;
-        private Button _confirmQuitButton;
-        private Button _cancelQuitButton;
-
-        private Clickable _runClickable;
-        private Clickable _pauseClickable;
-        private Clickable _stopClickable;
-        private Clickable _fullscreenClickable;
-        private Clickable _quitClickable;
-        private Clickable _reframeClickable;
-
         private string _scenarioPath;
         private string _behaviorPath;
+        private float _statsTimer;
+
+        /// <summary>
+        /// True once every element was found and every handler subscribed.
+        /// Guards <see cref="OnDisable"/>, which still runs when binding failed
+        /// and disabled this component.
+        /// </summary>
+        private bool _bound;
+
+        /// <summary>Set by <see cref="Find{T}"/> when a named element is missing.</summary>
+        private bool _bindingFailed;
 
         private void Awake()
         {
@@ -59,83 +95,147 @@ namespace ParticleSim.UI
 
         private void OnEnable()
         {
-            VisualElement root = GetComponent<UIDocument>().rootVisualElement;
+            if (simulation == null)
+            {
+                Debug.LogError($"[{nameof(SimulationUIController)}] Nenhum {nameof(SimulationController)} na cena. UI desativada.", this);
+                enabled = false;
+                return;
+            }
 
-            _runButton = root.Q<VisualElement>("runButton");
-            _pauseButton = root.Q<VisualElement>("pauseButton");
-            _stopButton = root.Q<VisualElement>("stopButton");
-            _scenarioButton = root.Q<Button>("scenarioButton");
-            _behaviorButton = root.Q<Button>("behaviorButton");
-            _loadButton = root.Q<Button>("loadButton");
-            _scenarioPathLabel = root.Q<Label>("scenarioPathLabel");
-            _behaviorPathLabel = root.Q<Label>("behaviorPathLabel");
-            _statusLabel = root.Q<Label>("statusLabel");
-            _errorLabel = root.Q<Label>("errorLabel");
+            if (!Bind())
+            {
+                // Binding only fails when SimulationUI.uxml and this script
+                // disagree about an element name. Disabling the component makes
+                // that a single loud error at startup instead of a silently
+                // dead control, or a NullReferenceException every frame.
+                Debug.LogError($"[{nameof(SimulationUIController)}] SimulationUI.uxml não corresponde a este script (veja os erros acima). UI desativada.", this);
+                enabled = false;
+                return;
+            }
 
-            if (_scenarioPathLabel != null && simulation != null) _scenarioPathLabel.text = simulation.scenarioFileName;
-            if (_behaviorPathLabel != null && simulation != null) _behaviorPathLabel.text = simulation.behaviorFileName;
+            Subscribe();
+            _bound = true;
 
-            _movementsLabel = root.Q<Label>("movementsLabel");
-            _collisionsLabel = root.Q<Label>("collisionsLabel");
-            _invalidMovementsLabel = root.Q<Label>("invalidMovementsLabel");
-            _fpsLabel = root.Q<Label>("fpsLabel");
-            _timeLabel = root.Q<Label>("timeLabel");
-            _cyclesLabel = root.Q<Label>("cyclesLabel");
-            _stepTimeLabel = root.Q<Label>("stepTimeLabel");
-            _messagesSentLabel = root.Q<Label>("messagesSentLabel");
-            _messagesDeliveredLabel = root.Q<Label>("messagesDeliveredLabel");
-
-            _fullscreenButton = root.Q<VisualElement>("fullscreenButton");
-            _quitButton = root.Q<VisualElement>("quitButton");
-            _reframeButton = root.Q<VisualElement>("reframeButton");
-            _quitPopup = root.Q<VisualElement>("quitPopup");
-            _confirmQuitButton = root.Q<Button>("confirmQuitButton");
-            _cancelQuitButton = root.Q<Button>("cancelQuitButton");
-
-            if (_runButton != null) _runButton.AddManipulator(_runClickable = new Clickable(OnRun));
-            if (_pauseButton != null) _pauseButton.AddManipulator(_pauseClickable = new Clickable(OnPause));
-            if (_stopButton != null) _stopButton.AddManipulator(_stopClickable = new Clickable(OnStop));
-
-            if (_fullscreenButton != null) _fullscreenButton.AddManipulator(_fullscreenClickable = new Clickable(OnToggleFullscreen));
-            if (_quitButton != null) _quitButton.AddManipulator(_quitClickable = new Clickable(OnShowQuitPopup));
-            if (_reframeButton != null) _reframeButton.AddManipulator(_reframeClickable = new Clickable(OnReframe));
-            if (_confirmQuitButton != null) _confirmQuitButton.clicked += OnConfirmQuit;
-            if (_cancelQuitButton != null) _cancelQuitButton.clicked += OnCancelQuit;
-
-            if (_scenarioButton != null) _scenarioButton.clicked += OnPickScenario;
-            if (_behaviorButton != null) _behaviorButton.clicked += OnPickBehavior;
-            if (_loadButton != null) _loadButton.clicked += OnLoad;
+            _scenarioPathLabel.text = simulation.scenarioFileName;
+            _behaviorPathLabel.text = simulation.behaviorFileName;
         }
 
         private void Start()
         {
-            if (simulation != null)
-            {
-                if (simulation.HasData)
-                    SetStatus("Simulação carregada (padrão).");
-                else
-                    SetStatus("Falha ao carregar padrões. Verifique os erros abaixo.");
+            if (!_bound) return;
 
-                ShowLoadError();
-            }
+            SetStatus(simulation.HasData
+                ? "Simulação carregada (padrão)."
+                : "Falha ao carregar padrões. Verifique os erros abaixo.");
+
+            ShowLoadErrors();
         }
 
         private void OnDisable()
         {
-            if (_runButton != null && _runClickable != null) _runButton.RemoveManipulator(_runClickable);
-            if (_pauseButton != null && _pauseClickable != null) _pauseButton.RemoveManipulator(_pauseClickable);
-            if (_stopButton != null && _stopClickable != null) _stopButton.RemoveManipulator(_stopClickable);
-            
-            if (_fullscreenButton != null && _fullscreenClickable != null) _fullscreenButton.RemoveManipulator(_fullscreenClickable);
-            if (_quitButton != null && _quitClickable != null) _quitButton.RemoveManipulator(_quitClickable);
-            if (_reframeButton != null && _reframeClickable != null) _reframeButton.RemoveManipulator(_reframeClickable);
-            if (_confirmQuitButton != null) _confirmQuitButton.clicked -= OnConfirmQuit;
-            if (_cancelQuitButton != null) _cancelQuitButton.clicked -= OnCancelQuit;
+            if (!_bound) return;
 
-            if (_scenarioButton != null) _scenarioButton.clicked -= OnPickScenario;
-            if (_behaviorButton != null) _behaviorButton.clicked -= OnPickBehavior;
-            if (_loadButton != null) _loadButton.clicked -= OnLoad;
+            _runButton.clicked -= OnRun;
+            _pauseButton.clicked -= OnPause;
+            _stopButton.clicked -= OnStop;
+            _reframeButton.clicked -= OnReframe;
+            _expandButton.clicked -= OnToggleSidebar;
+            _fullscreenButton.clicked -= OnToggleFullscreen;
+            _quitButton.clicked -= OnShowQuitPopup;
+            _confirmQuitButton.clicked -= OnConfirmQuit;
+            _cancelQuitButton.clicked -= OnCancelQuit;
+            _scenarioButton.clicked -= OnPickScenario;
+            _behaviorButton.clicked -= OnPickBehavior;
+            _scenarioXButton.clicked -= OnClearScenario;
+            _behaviorXButton.clicked -= OnClearBehavior;
+            _loadButton.clicked -= OnLoad;
+
+            _bound = false;
         }
+
+        // ---------- Binding ----------
+
+        /// <summary>
+        /// Resolves every element this script drives. Returns false if any one
+        /// of them is missing, having already logged which — a missing element
+        /// means the UXML was renamed without updating this file, which is a
+        /// developer error worth surfacing rather than swallowing.
+        /// </summary>
+        private bool Bind()
+        {
+            VisualElement root = GetComponent<UIDocument>().rootVisualElement;
+            _bindingFailed = false;
+
+            _runButton = Find<Button>(root, "runButton");
+            _pauseButton = Find<Button>(root, "pauseButton");
+            _stopButton = Find<Button>(root, "stopButton");
+            _reframeButton = Find<Button>(root, "reframeButton");
+            _expandButton = Find<Button>(root, "expandButton");
+            _fullscreenButton = Find<Button>(root, "fullscreenButton");
+            _quitButton = Find<Button>(root, "quitButton");
+            _scenarioButton = Find<Button>(root, "scenarioButton");
+            _behaviorButton = Find<Button>(root, "behaviorButton");
+            _scenarioXButton = Find<Button>(root, "scenarioXButton");
+            _behaviorXButton = Find<Button>(root, "behaviorXButton");
+            _loadButton = Find<Button>(root, "loadButton");
+            _confirmQuitButton = Find<Button>(root, "confirmQuitButton");
+            _cancelQuitButton = Find<Button>(root, "cancelQuitButton");
+
+            _filePanel = Find<VisualElement>(root, "filePanel");
+            _quitPopup = Find<VisualElement>(root, "quitPopup");
+            _scenarioErrorBox = Find<ScrollView>(root, "scenarioErrorBox");
+            _behaviorErrorBox = Find<ScrollView>(root, "behaviorErrorBox");
+
+            _scenarioPathLabel = Find<Label>(root, "scenarioPathLabel");
+            _behaviorPathLabel = Find<Label>(root, "behaviorPathLabel");
+            _statusLabel = Find<Label>(root, "statusLabel");
+            _scenarioErrorLabel = Find<Label>(root, "scenarioErrorLabel");
+            _behaviorErrorLabel = Find<Label>(root, "behaviorErrorLabel");
+            _particleCountLabel = Find<Label>(root, "particleCountLabel");
+            _movementsLabel = Find<Label>(root, "movementsLabel");
+            _collisionsLabel = Find<Label>(root, "collisionsLabel");
+            _invalidMovementsLabel = Find<Label>(root, "invalidMovementsLabel");
+            _fpsLabel = Find<Label>(root, "fpsLabel");
+            _timeLabel = Find<Label>(root, "timeLabel");
+            _cyclesLabel = Find<Label>(root, "cyclesLabel");
+            _stepTimeLabel = Find<Label>(root, "stepTimeLabel");
+            _messagesSentLabel = Find<Label>(root, "messagesSentLabel");
+            _messagesDeliveredLabel = Find<Label>(root, "messagesDeliveredLabel");
+
+            return !_bindingFailed;
+        }
+
+        private T Find<T>(VisualElement root, string elementName) where T : VisualElement
+        {
+            T element = root.Q<T>(elementName);
+            if (element == null)
+            {
+                Debug.LogError($"[{nameof(SimulationUIController)}] '{elementName}' ({typeof(T).Name}) não encontrado em SimulationUI.uxml.", this);
+                _bindingFailed = true;
+            }
+
+            return element;
+        }
+
+        private void Subscribe()
+        {
+            _runButton.clicked += OnRun;
+            _pauseButton.clicked += OnPause;
+            _stopButton.clicked += OnStop;
+            _reframeButton.clicked += OnReframe;
+            _expandButton.clicked += OnToggleSidebar;
+            _fullscreenButton.clicked += OnToggleFullscreen;
+            _quitButton.clicked += OnShowQuitPopup;
+            _confirmQuitButton.clicked += OnConfirmQuit;
+            _cancelQuitButton.clicked += OnCancelQuit;
+            _scenarioButton.clicked += OnPickScenario;
+            _behaviorButton.clicked += OnPickBehavior;
+            _scenarioXButton.clicked += OnClearScenario;
+            _behaviorXButton.clicked += OnClearBehavior;
+            _loadButton.clicked += OnLoad;
+        }
+
+        // ---------- View controls ----------
 
         private void OnToggleFullscreen()
         {
@@ -144,15 +244,31 @@ namespace ParticleSim.UI
 
         private void OnReframe()
         {
-            if (simulation == null) return;
             simulation.FrameCamera();
             SetStatus("Câmera reenquadrada.");
         }
 
+        /// <summary>
+        /// Shows/hides the configuration sidebar so the viewport can use the
+        /// full window width. The 3D viewport already renders behind the
+        /// sidebar at all times (it's just an opaque overlay), so nothing else
+        /// needs to resize or re-frame when this toggles. The panel's class
+        /// list is the single source of truth for whether it's open — there is
+        /// no separate bool that could drift out of sync with what's on screen.
+        /// </summary>
+        private void OnToggleSidebar()
+        {
+            _filePanel.ToggleInClassList(HiddenClass);
+        }
+
         private void OnShowQuitPopup()
         {
-            if (_quitPopup != null)
-                _quitPopup.style.display = DisplayStyle.Flex;
+            _quitPopup.RemoveFromClassList(HiddenClass);
+        }
+
+        private void OnCancelQuit()
+        {
+            _quitPopup.AddToClassList(HiddenClass);
         }
 
         private void OnConfirmQuit()
@@ -164,37 +280,35 @@ namespace ParticleSim.UI
 #endif
         }
 
-        private void OnCancelQuit()
-        {
-            if (_quitPopup != null)
-                _quitPopup.style.display = DisplayStyle.None;
-        }
+        // ---------- Indicators ----------
 
         private void Update()
         {
+            _statsTimer += Time.unscaledDeltaTime;
+            if (_statsTimer < StatsRefreshInterval) return;
+
+            _statsTimer = 0f;
             UpdateStats();
         }
 
         private void UpdateStats()
         {
-            if (simulation == null) return;
-
-            if (_movementsLabel != null) _movementsLabel.text = $"Movimentos: {simulation.TotalMovements}";
-            if (_collisionsLabel != null) _collisionsLabel.text = $"Colisões: {simulation.TotalCollisions}";
-            if (_invalidMovementsLabel != null) _invalidMovementsLabel.text = $"Movimentos inválidos: {simulation.TotalInvalidMovements}";
-            if (_fpsLabel != null) _fpsLabel.text = $"FPS: {Mathf.RoundToInt(simulation.FrameRate)}";
-            if (_timeLabel != null) _timeLabel.text = $"Tempo decorrido: {simulation.SimulationTime:F1}s";
-            if (_cyclesLabel != null) _cyclesLabel.text = $"Ciclos: {simulation.CycleCount}";
-            if (_stepTimeLabel != null) _stepTimeLabel.text = $"Tempo por ciclo: {simulation.AverageStepTimeMs:F2}ms";
-            if (_messagesSentLabel != null) _messagesSentLabel.text = $"Mensagens enviadas: {simulation.TotalMessagesSent}";
-            if (_messagesDeliveredLabel != null) _messagesDeliveredLabel.text = $"Mensagens recebidas: {simulation.TotalMessagesDelivered}";
+            _particleCountLabel.text = $"Partículas: {simulation.ParticleCount}";
+            _movementsLabel.text = $"Movimentos: {simulation.TotalMovements}";
+            _collisionsLabel.text = $"Colisões: {simulation.TotalCollisions}";
+            _invalidMovementsLabel.text = $"Movimentos inválidos: {simulation.TotalInvalidMovements}";
+            _fpsLabel.text = $"FPS: {Mathf.RoundToInt(simulation.FrameRate)}";
+            _timeLabel.text = $"Tempo decorrido: {simulation.SimulationTime:F1}s";
+            _cyclesLabel.text = $"Ciclos: {simulation.CycleCount}";
+            _stepTimeLabel.text = $"Tempo por ciclo: {simulation.AverageStepTimeMs:F2}ms";
+            _messagesSentLabel.text = $"Mensagens enviadas: {simulation.TotalMessagesSent}";
+            _messagesDeliveredLabel.text = $"Mensagens recebidas: {simulation.TotalMessagesDelivered}";
         }
 
         // ---------- Simulation controls ----------
 
         private void OnRun()
         {
-            if (simulation == null) return;
             simulation.Run();
             SetStatus(simulation.IsFinished
                 ? "Simulação encerrada. Use \"Encerrar\" para resetar."
@@ -203,14 +317,12 @@ namespace ParticleSim.UI
 
         private void OnPause()
         {
-            if (simulation == null) return;
             simulation.Pause();
             SetStatus("Pausado.");
         }
 
         private void OnStop()
         {
-            if (simulation == null) return;
             simulation.ResetSimulation();
             SetStatus("Resetado para o início.");
         }
@@ -220,29 +332,35 @@ namespace ParticleSim.UI
         private void OnPickScenario()
         {
             string path = StandaloneFileDialog.OpenFile("Selecionar arquivo de cenário (JSON)");
-            if (string.IsNullOrEmpty(path))
-                return;
+            if (string.IsNullOrEmpty(path)) return;
 
             _scenarioPath = path;
-            if (_scenarioPathLabel != null)
-                _scenarioPathLabel.text = Path.GetFileName(path);
+            _scenarioPathLabel.text = Path.GetFileName(path);
         }
 
         private void OnPickBehavior()
         {
             string path = StandaloneFileDialog.OpenFile("Selecionar arquivo de comportamento (JSON)");
-            if (string.IsNullOrEmpty(path))
-                return;
+            if (string.IsNullOrEmpty(path)) return;
 
             _behaviorPath = path;
-            if (_behaviorPathLabel != null)
-                _behaviorPathLabel.text = Path.GetFileName(path);
+            _behaviorPathLabel.text = Path.GetFileName(path);
+        }
+
+        private void OnClearScenario()
+        {
+            _scenarioPath = null;
+            _scenarioPathLabel.text = simulation.scenarioFileName;
+        }
+
+        private void OnClearBehavior()
+        {
+            _behaviorPath = null;
+            _behaviorPathLabel.text = simulation.behaviorFileName;
         }
 
         private void OnLoad()
         {
-            if (simulation == null) return;
-
             string scenarioPath = string.IsNullOrEmpty(_scenarioPath)
                 ? Path.Combine(Application.streamingAssetsPath, simulation.scenarioFileName)
                 : _scenarioPath;
@@ -256,29 +374,33 @@ namespace ParticleSim.UI
                 ? "Simulação carregada. Pressione \"Rodar\"."
                 : "Falha ao carregar. Verifique os erros abaixo.");
 
-            ShowLoadError();
+            ShowLoadErrors();
         }
 
         private void SetStatus(string message)
         {
-            if (_statusLabel != null)
-                _statusLabel.text = message;
+            _statusLabel.text = message;
         }
 
         /// <summary>
         /// Provisional display of the validation errors that blocked the last
-        /// load. Pure display: the message is built by the validation module
-        /// and only passed through by SimulationController.
+        /// load, one independently-scrollable box per file. The message is built
+        /// by the validation module and only passed through by
+        /// SimulationController — split per file there
+        /// (LastScenarioLoadError / LastBehaviorLoadError) so an error in one
+        /// file never shows under the other's card.
         /// </summary>
-        private void ShowLoadError()
+        private void ShowLoadErrors()
         {
-            if (_errorLabel == null) return;
+            ApplyError(_scenarioErrorBox, _scenarioErrorLabel, simulation.LastScenarioLoadError);
+            ApplyError(_behaviorErrorBox, _behaviorErrorLabel, simulation.LastBehaviorLoadError);
+        }
 
-            string error = simulation != null ? simulation.LastLoadError : null;
+        private static void ApplyError(VisualElement box, Label label, string error)
+        {
             bool hasError = !string.IsNullOrEmpty(error);
-
-            _errorLabel.text = hasError ? error : string.Empty;
-            _errorLabel.style.display = hasError ? DisplayStyle.Flex : DisplayStyle.None;
+            label.text = hasError ? error : string.Empty;
+            box.EnableInClassList(HiddenClass, !hasError);
         }
     }
 }
