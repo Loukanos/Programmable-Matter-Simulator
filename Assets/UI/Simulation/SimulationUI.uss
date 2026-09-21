@@ -386,9 +386,14 @@ Button {
 
 /* Fixed-height, independently scrollable error box per file. Starts with
    the `hidden` class in the UXML and is shown only when its own file has
-   an error. */
+   an error. The height stays fixed rather than growing with the content —
+   that was an explicit requirement, so a file with twenty errors can't
+   push the rest of the panel off screen. 160px was chosen against a real
+   render: with both boxes open (the worst case) the sidebar still had
+   ~279px of unused height below its last control, so the two boxes could
+   take ~70px each and leave comfortable slack. */
 .err-box {
-    height: 90px;
+    height: 160px;
     margin-top: 6px;
     background-color: rgb(58, 64, 70);
     border-width: 1px;
@@ -403,9 +408,12 @@ Button {
     padding-right: 8px;
 }
 
+/* 12px matches the panel's other body text (.param-label, .file-card-title)
+   — error messages are the thing you most need to actually read when
+   something breaks, so they shouldn't be the smallest text on screen. */
 .error-label {
     color: rgb(217, 119, 106);
-    font-size: 11px;
+    font-size: 12px;
     white-space: normal;
 }
 
