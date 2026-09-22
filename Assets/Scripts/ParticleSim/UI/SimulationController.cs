@@ -130,42 +130,43 @@ namespace ParticleSim.UI
         /// <summary>
         /// Carrega cenário e comportamento, reconstrói partículas e views,
         /// e opcionalmente já inicia a execução.
+        ///
+        /// Toda a validação — de cada arquivo e a cruzada entre os dois — mora
+        /// em <see cref="ValidatedSimulation.Load"/>, não aqui: este método só
+        /// pede o carregamento e repassa os erros. É o fluxo da Figura 7 ("a
+        /// Interface aciona o carregamento, o módulo de Entrada e Validação os
+        /// valida"), e é o que faz o tipo recebido pelo Gerenciador de Partículas
+        /// carregar a garantia de validação consigo.
         /// </summary>
         public bool LoadSimulation(string scenarioPath, string behaviorPath, bool startRunning = false)
         {
-            // Both files are always validated, even when the first already
-            // failed, so the user sees every problem in one pass.
-            ScenarioData scenario = ScenarioLoader.LoadFromFile(scenarioPath, out ValidationResult scenarioValidation);
-            Dictionary<string, TypeBehavior> behaviors = BehaviorLoader.LoadFromFile(behaviorPath, out ValidationResult behaviorValidation);
+            ValidatedSimulation loaded = ValidatedSimulation.Load(
+                scenarioPath, behaviorPath,
+                out ValidationResult scenarioValidation,
+                out ValidationResult behaviorValidation);
 
-            if (scenario == null || behaviors == null)
+            if (loaded == null)
             {
-                LastScenarioLoadError = scenarioValidation != null && !scenarioValidation.IsValid ? scenarioValidation.ToMessage() : null;
-                LastBehaviorLoadError = behaviorValidation != null && !behaviorValidation.IsValid ? behaviorValidation.ToMessage() : null;
-                Debug.LogError($"[SimulationController] Falha ao carregar:\n{LastScenarioLoadError}\n{LastBehaviorLoadError}");
-                return false;
-            }
-
-            // Só agora dá para checar o que depende dos dois arquivos juntos.
-            // Roda antes de instanciar qualquer coisa: a especificação exige
-            // que uma inconsistência bloqueie a execução, e não que ela apareça
-            // como partícula inerte depois que a simulação já está montada.
-            CrossValidator.Validate(scenario, behaviors, scenarioValidation);
-            if (!scenarioValidation.IsValid)
-            {
-                LastScenarioLoadError = scenarioValidation.ToMessage();
-                LastBehaviorLoadError = null;
-                Debug.LogError($"[SimulationController] Falha ao carregar:\n{LastScenarioLoadError}");
+                LastScenarioLoadError = scenarioValidation.IsValid ? null : scenarioValidation.ToMessage();
+                LastBehaviorLoadError = behaviorValidation.IsValid ? null : behaviorValidation.ToMessage();
+                // Aviso (amarelo), não erro: um arquivo inválido fornecido pelo
+                // usuário é uma situação prevista, já explicada nas caixas de erro
+                // da interface — não um defeito do programa. Vermelho fica
+                // reservado para configuração quebrada que exige correção no
+                // código ou na cena (shader não atribuído, elemento de UI
+                // ausente). Também evita que o "Error Pause" do console pause o
+                // Play Mode a cada arquivo inválido testado de propósito.
+                Debug.LogWarning($"[SimulationController] Falha ao carregar:\n{LastScenarioLoadError}\n{LastBehaviorLoadError}");
                 return false;
             }
 
             LastScenarioLoadError = null;
             LastBehaviorLoadError = null;
 
-            _particleManager.BuildFromScenario(scenario);
-            _engine.SetBehaviors(behaviors);
-            _engine.MaxCycles = scenario.maxCycles;
-            _engine.IdleCyclesLimit = scenario.idleCyclesLimit;
+            _particleManager.BuildFromScenario(loaded);
+            _engine.SetBehaviors(loaded.Behaviors);
+            _engine.MaxCycles = loaded.Scenario.maxCycles;
+            _engine.IdleCyclesLimit = loaded.Scenario.idleCyclesLimit;
             _engine.Reset();
             _metrics.Reset();
 

@@ -253,13 +253,46 @@ namespace ParticleSim.SimulationEngine
                     }
                     else if (action.FunctionName == LanguageVocabulary.SetState)
                     {
+                        // Aplicado AGORA, na fase de coleta — ao contrário de move
+                        // (adiado para a fase 3) e sendMessage (entregue no ciclo
+                        // seguinte). Isso diverge da letra do TCC ("registrar
+                        // intenções... sem modificar imediatamente o ambiente"), e
+                        // é deliberado. NÃO adiar para a fase 3 sem ler isto:
+                        //
+                        // 1. A única observadora desta gravação é a própria
+                        //    partícula, nos blocos seguintes deste mesmo ciclo. Pela
+                        //    RN09 nenhuma outra partícula lê este estado — state()
+                        //    só lê o próprio, e IGridQuery nem entrega o objeto de
+                        //    um vizinho. Logo a ordem de processamento entre
+                        //    partículas não gera vantagem, que é o que as três
+                        //    fases existem para impedir.
+                        // 2. Essa auto-visibilidade é necessária: é o que deixa um
+                        //    setState feito no onMessage valer para o onStep do
+                        //    mesmo ciclo (a razão da ordem onMessage → onTouch →
+                        //    onStep). Adiar para a fase 3 faria o onStep ler o valor
+                        //    antigo e devolveria a latência mensagem→movimento de
+                        //    1 para 2 ciclos — o bug que aquela ordem corrigiu.
+                        // 3. A versão fiel ao texto que preserva (2) seria um buffer
+                        //    por partícula com leitura das próprias escritas,
+                        //    aplicado na fase 3. Sob a RN09 ele é observacionalmente
+                        //    idêntico a gravar direto: não há quem leia o buffer.
+                        //
+                        // Consequência: a RN09 é o que torna isto seguro. Se algum dia
+                        // existir uma leitura do estado de OUTRA partícula, esta
+                        // gravação imediata passa a fazer o resultado depender da
+                        // ordem das partículas no scenario.json — e aí sim precisa
+                        // virar buffer.
                         if (ApplySetState(particle, action.Arguments, ctx))
                             anyActivity = true;
                     }
                     else if (action.FunctionName == LanguageVocabulary.SetColor)
                     {
                         // O hex já foi validado no carregamento — TryParseHtmlString
-                        // sempre deve ter sucesso aqui.
+                        // sempre deve ter sucesso aqui. Também aplicado já na fase de
+                        // coleta, pelo mesmo motivo do setState acima; aqui ainda mais
+                        // inofensivo, porque cor nem existe no modelo (Particle não
+                        // tem Cor), a linguagem não tem como lê-la, e nada é
+                        // renderizado antes de Step() terminar.
                         string hex = ((LiteralValueNode)action.Arguments[0]).Token.Value;
                         if (ColorUtility.TryParseHtmlString(hex, out Color color))
                         {

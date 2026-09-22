@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using ParticleSim.Core;
+using ParticleSim.InputValidation;
 using UnityEngine;
 
 namespace ParticleSim.ParticleManager
@@ -10,8 +11,14 @@ namespace ParticleSim.ParticleManager
     /// estrutura de ocupação espacial e resolve consultas de vizinhança e
     /// de contorno. Não conhece GameObjects, materiais, cor ou qualquer
     /// classe de ParticleSim.UI — a interpretação de regras é papel do
-    /// Motor de Simulação, que consome esta classe apenas através da
-    /// interface IGridQuery.
+    /// Motor de Simulação.
+    ///
+    /// Depende de InputValidation, e só pelo tipo ValidatedSimulation: é o
+    /// "modelo de dados estruturado" que a Figura 7 do TCC diz que o módulo de
+    /// Entrada e Validação disponibiliza ao Gerenciador. O Motor de Simulação,
+    /// por sua vez, referencia esta classe concretamente (enumera Particles e
+    /// reconstrói o índice a cada ciclo); IGridQuery é o recorte que o
+    /// interpretador da linguagem enxerga, não o que o Motor usa.
     /// </summary>
     public class ParticleManager : IGridQuery
     {
@@ -24,27 +31,33 @@ namespace ParticleSim.ParticleManager
  
         /// <summary>
         /// Limpa o estado atual e instancia uma nova população de
-        /// partículas a partir dos dados do cenário validado.
+        /// partículas a partir do cenário validado.
+        ///
+        /// Aceita só <see cref="ValidatedSimulation"/>, nunca um
+        /// <see cref="ScenarioData"/> solto: como aquele tipo só pode ser obtido
+        /// passando pela validação, é o tipo do parâmetro — e não a ordem em que
+        /// alguém chama as coisas — que garante que nada malformado chega aqui.
+        /// Por isso não há checagem defensiva de posição no laço abaixo: o
+        /// ScenarioValidator já rejeita posição ausente, fora do formato
+        /// [x, y, z], com eixo não inteiro ou fora da grade, e antes dessa
+        /// garantia existir havia aqui um ramo que avisava e ignorava a
+        /// partícula — agora comprovadamente inalcançável.
         /// </summary>
-        public void BuildFromScenario(ScenarioData scenario)
+        public void BuildFromScenario(ValidatedSimulation simulation)
         {
+            ScenarioData scenario = simulation.Scenario;
+
             _particles.Clear();
             _gridLookup.Clear();
- 
+
             GridSize = new Vector3Int(scenario.gridSize[0], scenario.gridSize[1], scenario.gridSize[2]);
- 
+
             foreach (ParticleData data in scenario.particles)
             {
-                if (data.position == null || data.position.Length < 3)
-                {
-                    Debug.LogWarning($"[ParticleManager] Partícula {data.id} tem posição inválida e foi ignorada.");
-                    continue;
-                }
- 
                 var position = new Vector3Int(data.position[0], data.position[1], data.position[2]);
                 _particles.Add(new Particle(data.id, data.type, position));
             }
- 
+
             RefreshGridLookup();
         }
  
