@@ -56,6 +56,19 @@ namespace ParticleSim.ParticleManager
                 _gridLookup[p.GridPosition] = p;
         }
  
+        /// <summary>
+        /// Ocupação da célula, sem expor quem a ocupa — é o que o
+        /// interpretador da linguagem declarativa enxerga via IGridQuery
+        /// (RN09). Quem precisa da partícula em si usa TryGetParticleAt
+        /// abaixo, que não faz parte daquele contrato.
+        /// </summary>
+        public bool IsOccupied(Vector3Int position) => _gridLookup.ContainsKey(position);
+
+        /// <summary>
+        /// Obtém a partícula que ocupa a posição. Deliberadamente fora de
+        /// IGridQuery: só o Motor de Simulação usa (entrega de mensagem e
+        /// resolução de colisão), e ele referencia esta classe concretamente.
+        /// </summary>
         public bool TryGetParticleAt(Vector3Int position, out Particle particle) =>
             _gridLookup.TryGetValue(position, out particle);
  

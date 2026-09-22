@@ -10,10 +10,25 @@ namespace ParticleSim.SimulationEngine
     /// Motor de Simulação: processa os ciclos discretos (coleta de
     /// intenções, resolução de conflitos, aplicação de ações),
     /// interpretando as regras declarativas de cada tipo de partícula.
-    /// Depende do ParticleManager apenas através da interface IGridQuery e
-    /// da lista de partículas — nunca referencia ParticleSim.UI.
-    /// Movimento e mudança de cor são comunicados por eventos, para que a
-    /// camada de visualização se atualize sem gerar dependência reversa.
+    ///
+    /// Depende do ParticleManager **concretamente**, não via IGridQuery: além
+    /// das três consultas da interface, usa Particles (enumerar a população a
+    /// cada ciclo) e RefreshGridLookup (reconstruir o índice espacial no
+    /// início do ciclo), que não estão nela. Isso é o que a Figura 7 do TCC
+    /// especifica — "o Motor de Simulação depende do Gerenciador de
+    /// Partículas" — e está registrado aqui porque a versão anterior deste
+    /// comentário afirmava o contrário ("apenas através da interface
+    /// IGridQuery"), o que levou uma auditoria a concluir errado a direção
+    /// real da dependência.
+    ///
+    /// Onde IGridQuery de fato atua é uma camada abaixo: é o que o
+    /// *interpretador* (ConditionEvaluator/ValueResolver, via
+    /// EvaluationContext.Grid) enxerga, e por isso a linguagem declarativa
+    /// nunca alcança a população inteira — só consulta célula a célula.
+    ///
+    /// Nunca referencia ParticleSim.UI. Movimento e mudança de cor são
+    /// comunicados por eventos, para que a camada de visualização se atualize
+    /// sem gerar dependência reversa.
     /// </summary>
     public class SimulationEngine
     {

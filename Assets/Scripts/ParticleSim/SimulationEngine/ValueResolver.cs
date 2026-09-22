@@ -99,7 +99,7 @@ namespace ParticleSim.SimulationEngine
             foreach (Vector3Int delta in LanguageVocabulary.DirectionDeltas)
             {
                 Vector3Int target = ctx.Particle.GridPosition + delta;
-                if (ctx.Grid.IsInBounds(target) && ctx.Grid.TryGetParticleAt(target, out _))
+                if (ctx.Grid.IsInBounds(target) && ctx.Grid.IsOccupied(target))
                     count++;
             }
             return count;
@@ -125,7 +125,7 @@ namespace ParticleSim.SimulationEngine
                 return false;
 
             Vector3Int target = ctx.Particle.GridPosition + delta;
-            return ctx.Grid.IsInBounds(target) && !ctx.Grid.TryGetParticleAt(target, out _);
+            return ctx.Grid.IsInBounds(target) && !ctx.Grid.IsOccupied(target);
         }
     }
 }

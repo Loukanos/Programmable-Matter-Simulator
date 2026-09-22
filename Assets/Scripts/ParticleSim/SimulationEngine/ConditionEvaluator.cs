@@ -113,7 +113,7 @@ namespace ParticleSim.SimulationEngine
                 foreach (Vector3Int d in LanguageVocabulary.DirectionDeltas)
                 {
                     Vector3Int neighborPos = particle.GridPosition + d;
-                    if (grid.IsInBounds(neighborPos) && grid.TryGetParticleAt(neighborPos, out _))
+                    if (grid.IsInBounds(neighborPos) && grid.IsOccupied(neighborPos))
                         return true;
                 }
                 return false;
@@ -127,11 +127,11 @@ namespace ParticleSim.SimulationEngine
 
             // Note: intentionally NOT grid.ApplyBoundary — that clamps a
             // beyond-the-edge position back onto the particle's OWN cell (see
-            // ApplyBoundary's doc comment), which would make TryGetParticleAt
-            // find the particle itself and report a false neighbor at every
-            // grid edge. Off-grid simply means no neighbor there.
+            // ApplyBoundary's doc comment), which would make the occupancy
+            // check find the particle itself and report a false neighbor at
+            // every grid edge. Off-grid simply means no neighbor there.
             Vector3Int target = particle.GridPosition + delta;
-            return grid.IsInBounds(target) && grid.TryGetParticleAt(target, out _);
+            return grid.IsInBounds(target) && grid.IsOccupied(target);
         }
 
         /// <summary>

@@ -16,7 +16,13 @@ namespace ParticleSim.Core
         public string Type { get; }
         public Vector3Int GridPosition { get; private set; }
         public Vector3Int InitialGridPosition { get; }
-        public IReadOnlyDictionary<string, object> InternalState => _internalState;
+
+        // Deliberadamente não existe um acessor para o dicionário de estado
+        // inteiro. O estado interno só é alcançável chave a chave, via
+        // GetInternalState, que é como a RN09 ("cada partícula acessa apenas
+        // seu próprio estado interno") se sustenta: sem uma view do dicionário
+        // completo, não há por onde alguém enumerar o estado de outra
+        // partícula caso um dia chegue a ter a referência dela.
 
         /// <summary>Messages delivered at the start of the current cycle (see SimulationEngine.DeliverPendingMessages).</summary>
         public IReadOnlyList<Message> Inbox => _inbox;

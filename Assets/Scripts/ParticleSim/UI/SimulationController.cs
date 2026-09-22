@@ -146,6 +146,19 @@ namespace ParticleSim.UI
                 return false;
             }
 
+            // Só agora dá para checar o que depende dos dois arquivos juntos.
+            // Roda antes de instanciar qualquer coisa: a especificação exige
+            // que uma inconsistência bloqueie a execução, e não que ela apareça
+            // como partícula inerte depois que a simulação já está montada.
+            CrossValidator.Validate(scenario, behaviors, scenarioValidation);
+            if (!scenarioValidation.IsValid)
+            {
+                LastScenarioLoadError = scenarioValidation.ToMessage();
+                LastBehaviorLoadError = null;
+                Debug.LogError($"[SimulationController] Falha ao carregar:\n{LastScenarioLoadError}");
+                return false;
+            }
+
             LastScenarioLoadError = null;
             LastBehaviorLoadError = null;
 
