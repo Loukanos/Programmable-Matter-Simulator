@@ -414,7 +414,6 @@ GameObject:
   m_Component:
   - component: {fileID: 737045323}
   - component: {fileID: 737045324}
-  - component: {fileID: 737045322}
   m_Layer: 0
   m_Name: SimulationManager
   m_TagString: Untagged
@@ -422,18 +421,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &737045322
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 737045321}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c6574164effb98b4085dc83e5cc72e53, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ParticleSim.SimulationManager
 --- !u!4 &737045323
 Transform:
   m_ObjectHideFlags: 0
@@ -471,6 +458,9 @@ MonoBehaviour:
   particleShader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   frameCameraOnStart: 1
   moveAnimationDuration: 0.25
+  cameraFramingPadding: 1.15
+  scaleFlySpeedToScene: 1
+  reframeKey: 20
   showGridBounds: 1
   gridBoundsColor: {r: 0.5, g: 0.9, b: 1, a: 0.5}
   gridBoundsLineWidth: 0.04
@@ -554,7 +544,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8006bb34c8993674e85343f4d1c219b4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ParticleSim.SimulationUIController
-  simulation: {fileID: 737045322}
+  simulation: {fileID: 0}
 --- !u!114 &1713750610
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,0 +1,21 @@
+{
+    "name": "ParticleSim.UI",
+    "rootNamespace": "ParticleSim.UI",
+    "references": [
+        "ParticleSim.Core",
+        "ParticleSim.InputValidation",
+        "ParticleSim.ParticleManager",
+        "ParticleSim.SimulationEngine",
+        "ParticleSim.MetricsCalculator",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

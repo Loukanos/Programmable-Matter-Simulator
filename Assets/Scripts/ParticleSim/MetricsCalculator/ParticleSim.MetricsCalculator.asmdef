@@ -1,0 +1,17 @@
+{
+    "name": "ParticleSim.MetricsCalculator",
+    "rootNamespace": "ParticleSim.MetricsCalculator",
+    "references": [
+        "ParticleSim.Core",
+        "ParticleSim.SimulationEngine"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

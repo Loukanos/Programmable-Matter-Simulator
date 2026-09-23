@@ -1,0 +1,17 @@
+{
+    "name": "ParticleSim.SimulationEngine",
+    "rootNamespace": "ParticleSim.SimulationEngine",
+    "references": [
+        "ParticleSim.Core",
+        "ParticleSim.ParticleManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

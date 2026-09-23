@@ -1,0 +1,16 @@
+{
+    "name": "ParticleSim.InputValidation",
+    "rootNamespace": "ParticleSim.InputValidation",
+    "references": [
+        "ParticleSim.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
