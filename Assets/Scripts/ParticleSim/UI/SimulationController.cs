@@ -9,11 +9,11 @@ namespace ParticleSim.UI
 {
     public class SimulationController : MonoBehaviour
     {
-        [Header("Arquivos de dados (relativos a StreamingAssets)")]
+        [Header("Data files (relative to StreamingAssets)")]
         public string scenarioFileName = "scenario.json";
         public string behaviorFileName = "behavior.json";
 
-        [Header("Simulação")]
+        [Header("Simulation")]
         public float stepInterval = 1f;
         public bool autoStart = true;
 
@@ -121,7 +121,7 @@ namespace ParticleSim.UI
             {
                 LastScenarioLoadError = scenarioValidation.IsValid ? null : scenarioValidation.ToMessage();
                 LastBehaviorLoadError = behaviorValidation.IsValid ? null : behaviorValidation.ToMessage();
-                Debug.LogWarning($"[SimulationController] Falha ao carregar:\n{LastScenarioLoadError}\n{LastBehaviorLoadError}");
+                Debug.LogWarning($"[SimulationController] Load failed:\n{LastScenarioLoadError}\n{LastBehaviorLoadError}");
                 return false;
             }
 
@@ -188,7 +188,7 @@ namespace ParticleSim.UI
                 : (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
 
             if (shader == null)
-                Debug.LogError($"[{nameof(SimulationController)}] Shader das partículas não encontrado — atribua '{nameof(particleShader)}' no Inspector. Em builds, Shader.Find só acha shaders incluídos, então as partículas vão aparecer em rosa (shader de erro).", this);
+                Debug.LogError($"[{nameof(SimulationController)}] Particle shader not found: assign '{nameof(particleShader)}' in the Inspector. In builds Shader.Find only finds included shaders, so the particles will render pink (error shader).", this);
 
             var mat = new Material(shader != null ? shader : Shader.Find("Hidden/InternalErrorShader"));
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", particleColor);

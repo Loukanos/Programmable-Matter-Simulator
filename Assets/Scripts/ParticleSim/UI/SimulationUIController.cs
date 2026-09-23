@@ -115,14 +115,14 @@ namespace ParticleSim.UI
         {
             if (simulation == null)
             {
-                Debug.LogError($"[{nameof(SimulationUIController)}] Nenhum {nameof(SimulationController)} na cena. UI desativada.", this);
+                Debug.LogError($"[{nameof(SimulationUIController)}] No {nameof(SimulationController)} in the scene. UI disabled.", this);
                 enabled = false;
                 return;
             }
 
             if (!Bind())
             {
-                Debug.LogError($"[{nameof(SimulationUIController)}] SimulationUI.uxml não corresponde a este script (veja os erros acima). UI desativada.", this);
+                Debug.LogError($"[{nameof(SimulationUIController)}] SimulationUI.uxml does not match this script (see the errors above). UI disabled.", this);
                 enabled = false;
                 return;
             }
@@ -250,7 +250,7 @@ namespace ParticleSim.UI
             T element = root.Q<T>(elementName);
             if (element == null)
             {
-                Debug.LogError($"[{nameof(SimulationUIController)}] '{elementName}' ({typeof(T).Name}) não encontrado em SimulationUI.uxml.", this);
+                Debug.LogError($"[{nameof(SimulationUIController)}] '{elementName}' ({typeof(T).Name}) not found in SimulationUI.uxml.", this);
                 _bindingFailed = true;
             }
 

@@ -68,7 +68,7 @@ namespace ParticleSim.UI
                 shader = Shader.Find("Unlit/Color");
 
             if (preferredShader == null)
-                Debug.LogWarning($"[{nameof(GridBoundsRenderer)}] Sem shader serializado — atribua '{nameof(SimulationController.gridBoundsShader)}' no Inspector do {nameof(SimulationController)}. Em builds o contorno cai num shader de reserva e pode não ficar igual ao Editor.");
+                Debug.LogWarning($"[{nameof(GridBoundsRenderer)}] No serialized shader: assign '{nameof(SimulationController.gridBoundsShader)}' in the {nameof(SimulationController)} Inspector. In builds the outline falls back to another shader and may not match the Editor.");
 
             var mat = new Material(shader);
             if (mat.HasProperty("_BaseColor"))

@@ -194,7 +194,7 @@ namespace ParticleSim.SimulationEngine
                     }
                     else
                     {
-                        Debug.LogWarning($"[SimulationEngine] Ação não reconhecida: '{action.FunctionName}'");
+                        Debug.LogWarning($"[SimulationEngine] Unrecognized action: '{action.FunctionName}'");
                     }
                 }
             }
@@ -248,7 +248,7 @@ namespace ParticleSim.SimulationEngine
             {
                 if (!ConditionEvaluator.IsNumeric(current))
                 {
-                    Debug.LogWarning($"[SimulationEngine] setState incremento/decremento ignorado: '{key}' possui valor não-numérico ({current}).");
+                    Debug.LogWarning($"[SimulationEngine] setState increment/decrement ignored: '{key}' holds a non-numeric value ({current}).");
                     return false;
                 }
                 baseValue = Convert.ToDouble(current, System.Globalization.CultureInfo.InvariantCulture);

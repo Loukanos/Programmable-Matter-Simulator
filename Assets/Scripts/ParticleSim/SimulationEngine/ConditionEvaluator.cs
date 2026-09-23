@@ -36,7 +36,7 @@ namespace ParticleSim.SimulationEngine
                     return EvaluateFunctionCall(call, ctx);
 
                 default:
-                    Debug.LogWarning($"[ConditionEvaluator] Nó de condição inesperado: {node.GetType().Name}");
+                    Debug.LogWarning($"[ConditionEvaluator] Unexpected condition node: {node.GetType().Name}");
                     return false;
             }
         }
@@ -52,7 +52,7 @@ namespace ParticleSim.SimulationEngine
             if (call.FunctionName == LanguageVocabulary.CanMove)
                 return ValueResolver.ResolveCanMove(call.Arguments, ctx);
 
-            Debug.LogWarning($"[ConditionEvaluator] Função de condição desconhecida: {call.FunctionName}");
+            Debug.LogWarning($"[ConditionEvaluator] Unknown condition function: {call.FunctionName}");
             return false;
         }
 
@@ -78,7 +78,7 @@ namespace ParticleSim.SimulationEngine
 
             if (!LanguageVocabulary.TryGetDirectionDelta(direction, out Vector3Int delta))
             {
-                Debug.LogWarning($"[ConditionEvaluator] Direção de vizinhança desconhecida: {direction}");
+                Debug.LogWarning($"[ConditionEvaluator] Unknown neighbor direction: {direction}");
                 return false;
             }
 
@@ -113,7 +113,7 @@ namespace ParticleSim.SimulationEngine
             if (op == LanguageVocabulary.NotEqual) return !AreEqual(current, target);
             if (LanguageVocabulary.IsMagnitudeOperator(op)) return CompareValues(current, target, op);
 
-            Debug.LogWarning($"[ConditionEvaluator] Operador de comparação desconhecido: {op}");
+            Debug.LogWarning($"[ConditionEvaluator] Unknown comparison operator: {op}");
             return false;
         }
 

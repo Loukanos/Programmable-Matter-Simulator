@@ -59,7 +59,7 @@ namespace ParticleSim.SimulationEngine
             if (call.FunctionName == LanguageVocabulary.MoveResult)
                 return LanguageVocabulary.DescribeMoveOutcome(ctx.Particle.LastMoveResult);
 
-            Debug.LogWarning($"[ValueResolver] Função de valor desconhecida: {call.FunctionName}");
+            Debug.LogWarning($"[ValueResolver] Unknown value function: {call.FunctionName}");
             return null;
         }
 
