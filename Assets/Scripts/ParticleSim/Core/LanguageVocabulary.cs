@@ -4,26 +4,8 @@ using UnityEngine;
 
 namespace ParticleSim.Core
 {
-    /// <summary>
-    /// The single source of truth for the declarative language's vocabulary:
-    /// the six direction constants (and their grid deltas), the relational and
-    /// logical operators, and the function names.
-    ///
-    /// It lives in Core precisely so that both sides of the language can share
-    /// it without inverting the module dependencies: `InputValidation` reads it
-    /// to decide whether a file is well formed, and `SimulationEngine` reads it
-    /// to execute what the file says. Neither module depends on the other, and
-    /// the vocabulary is written down exactly once.
-    ///
-    /// What is *not* here is anything only one side needs: argument-kind
-    /// signatures, event-key shapes and the hex-color pattern are validation
-    /// concerns and stay in `InputValidation.Grammar`; how a condition is
-    /// evaluated or an action applied stays in `SimulationEngine`.
-    /// </summary>
     public static class LanguageVocabulary
     {
-        // ---- Directions ----
-
         public const string XPlus = "X+";
         public const string XMinus = "X-";
         public const string YPlus = "Y+";
@@ -31,10 +13,9 @@ namespace ParticleSim.Core
         public const string ZPlus = "Z+";
         public const string ZMinus = "Z-";
 
-        /// <summary>The six face directions, in a stable order.</summary>
+        // Order matters: opposite directions must stay adjacent, and DirectionDeltas follows this order.
         public static readonly string[] Directions = { XPlus, XMinus, YPlus, YMinus, ZPlus, ZMinus };
 
-        /// <summary>The grid deltas of <see cref="Directions"/>, in the same order.</summary>
         public static readonly Vector3Int[] DirectionDeltas =
         {
             new(1, 0, 0), new(-1, 0, 0),
@@ -55,8 +36,6 @@ namespace ParticleSim.Core
 
         private static Dictionary<string, string> BuildOppositeLookup()
         {
-            // The six directions are three opposing pairs laid out consecutively
-            // in Directions, so each entry pairs with its neighbour.
             var lookup = new Dictionary<string, string>(StringComparer.Ordinal);
             for (int i = 0; i < Directions.Length; i += 2)
             {
@@ -66,11 +45,6 @@ namespace ParticleSim.Core
             return lookup;
         }
 
-        /// <summary>
-        /// Normalizes a direction as written in the behavior file: the language
-        /// accepts it quoted or bare, in any case, so 'X+', "X+", X+ and x+ all
-        /// mean the same direction.
-        /// </summary>
         public static string NormalizeDirection(string value) =>
             value?.Trim().Trim('\'', '"').Trim().ToUpperInvariant();
 
@@ -80,23 +54,6 @@ namespace ParticleSim.Core
             return !string.IsNullOrEmpty(normalized) && DeltaByDirection.ContainsKey(normalized);
         }
 
-        /// <summary>
-        /// Whether a parsed argument is syntactically shaped like a
-        /// direction — a literal direction token/quoted-direction string, or
-        /// a nested call to state(...)/opposite(...) (the only two nested
-        /// calls ever validated into a Direction slot) — without resolving
-        /// it to an actual value. This is purely a shape check on the AST,
-        /// not a runtime resolution (see SimulationEngine.ValueResolver.
-        /// ResolveDirection for that); it exists specifically to let
-        /// InputValidation.ExpressionValidator and SimulationEngine.
-        /// SimulationEngine each decide, independently but identically,
-        /// which of sendMessage's two same-length overloads
-        /// (directed-no-payload `(dir, tag)` vs broadcast-with-payload
-        /// `(tag, payload)`) a given call matches — one shared
-        /// implementation here rather than two copies that could drift, since
-        /// both modules already depend on Core (and must not depend on each
-        /// other) and ValueNode/Token already live here too.
-        /// </summary>
         public static bool IsDirectionShaped(ValueNode node)
         {
             if (node is ValueCallNode call)
@@ -107,7 +64,6 @@ namespace ParticleSim.Core
                 || (token.Kind == TokenKind.QuotedString && IsDirection(token.Value));
         }
 
-        /// <summary>Grid displacement of a direction, or false when it is not one of the six.</summary>
         public static bool TryGetDirectionDelta(string value, out Vector3Int delta)
         {
             string normalized = NormalizeDirection(value);
@@ -118,10 +74,6 @@ namespace ParticleSim.Core
             return false;
         }
 
-        /// <summary>
-        /// The opposite direction (X+ ↔ X-, Y+ ↔ Y-, Z+ ↔ Z-), or null when the
-        /// input is not a valid direction.
-        /// </summary>
         public static string OppositeDirection(string value)
         {
             string normalized = NormalizeDirection(value);
@@ -131,8 +83,6 @@ namespace ParticleSim.Core
         }
 
         public static string DescribeDirections() => string.Join(", ", Directions);
-
-        // ---- Relational operators ----
 
         public const string Equal = "==";
         public const string NotEqual = "!=";
@@ -144,7 +94,6 @@ namespace ParticleSim.Core
         public static readonly string[] RelationalOperators =
             { Equal, NotEqual, Greater, Less, GreaterOrEqual, LessOrEqual };
 
-        /// <summary>The operators that compare magnitude, which the TCC restricts to numeric operands.</summary>
         public static readonly string[] MagnitudeOperators =
             { Greater, Less, GreaterOrEqual, LessOrEqual };
 
@@ -154,12 +103,7 @@ namespace ParticleSim.Core
         private static readonly HashSet<string> MagnitudeOperatorSet =
             new HashSet<string>(MagnitudeOperators, StringComparer.Ordinal);
 
-        /// <summary>
-        /// Exact match, deliberately without trimming: the lexer tests raw
-        /// two-character slices, so tolerating whitespace here would make "&gt; "
-        /// read as a single two-character operator. Callers holding quoted text
-        /// trim it themselves before asking.
-        /// </summary>
+        // No trimming on purpose: the lexer tests raw two-character slices, so "> " must not match.
         public static bool IsRelationalOperator(string value) =>
             value != null && RelationalOperatorSet.Contains(value);
 
@@ -167,8 +111,6 @@ namespace ParticleSim.Core
             value != null && MagnitudeOperatorSet.Contains(value);
 
         public static string DescribeRelationalOperators() => string.Join(", ", RelationalOperators);
-
-        // ---- Logical combinators ----
 
         public const string And = "And";
         public const string Or = "Or";
@@ -182,8 +124,6 @@ namespace ParticleSim.Core
         public static bool IsLogicalKeyword(string value) =>
             !string.IsNullOrWhiteSpace(value) && LogicalKeywordSet.Contains(value.Trim());
 
-        // ---- Literals ----
-
         public const string True = "true";
         public const string False = "false";
 
@@ -191,8 +131,6 @@ namespace ParticleSim.Core
             !string.IsNullOrWhiteSpace(value)
             && (value.Trim().Equals(True, StringComparison.OrdinalIgnoreCase)
                 || value.Trim().Equals(False, StringComparison.OrdinalIgnoreCase));
-
-        // ---- Function names ----
 
         public const string HasNeighbor = "hasNeighbor";
         public const string CheckState = "checkState";
@@ -204,10 +142,6 @@ namespace ParticleSim.Core
         public const string Wait = "wait";
         public const string SendMessage = "sendMessage";
 
-        // ---- Value-producing ("read") functions ----
-        // Usable as arguments wherever a direction or a checkState/setState
-        // operand is accepted, never as a standalone condition/action.
-
         public const string State = "state";
         public const string Opposite = "opposite";
         public const string MessageValue = "messageValue";
@@ -215,11 +149,6 @@ namespace ParticleSim.Core
         public const string CountNeighbors = "countNeighbors";
         public const string CanMove = "canMove";
         public const string MoveResult = "moveResult";
-
-        // ---- MoveOutcome tokens ----
-        // The string values moveResult() resolves to, for use in
-        // checkState(moveResult(), '==', 'moved') etc. Proposed names, not
-        // specified by the extension request.
 
         private static readonly Dictionary<MoveOutcome, string> MoveOutcomeTokens = new()
         {
