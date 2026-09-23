@@ -1,6 +1,6 @@
 {
     "name": "ParticleSim.InputValidation",
-    "rootNamespace": "ParticleSim.InputValidation",
+    "rootNamespace": "",
     "references": [
         "ParticleSim.Core"
     ],

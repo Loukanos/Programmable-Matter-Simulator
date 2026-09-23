@@ -1,6 +1,6 @@
 {
     "name": "ParticleSim.SimulationEngine",
-    "rootNamespace": "ParticleSim.SimulationEngine",
+    "rootNamespace": "",
     "references": [
         "ParticleSim.Core",
         "ParticleSim.ParticleManager"

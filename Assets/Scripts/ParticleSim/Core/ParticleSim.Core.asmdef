@@ -1,6 +1,6 @@
 {
     "name": "ParticleSim.Core",
-    "rootNamespace": "ParticleSim.Core",
+    "rootNamespace": "",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

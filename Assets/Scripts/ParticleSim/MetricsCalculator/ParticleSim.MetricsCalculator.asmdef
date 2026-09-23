@@ -1,6 +1,6 @@
 {
     "name": "ParticleSim.MetricsCalculator",
-    "rootNamespace": "ParticleSim.MetricsCalculator",
+    "rootNamespace": "",
     "references": [
         "ParticleSim.Core",
         "ParticleSim.SimulationEngine"
