@@ -2,26 +2,11 @@ using UnityEngine;
 
 namespace ParticleSim.UI
 {
-    /// <summary>
-    /// Draws only the outline (the 12 edges) of the grid's bounding box using a
-    /// single LineRenderer. Shows the simulation limits without filling the
-    /// interior, so it stays subtle and out of the way.
-    /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class GridBoundsRenderer : MonoBehaviour
     {
         private LineRenderer _line;
 
-        /// <summary>
-        /// Builds the wireframe box that encloses every grid cell.
-        /// Cells span integer coords 0..gridSize-1; the box is padded by half a
-        /// cell on each side so the cubes sit neatly inside.
-        /// <paramref name="shader"/> comes from <see cref="SimulationController.gridBoundsShader"/>
-        /// rather than being resolved here: this component is created at runtime with
-        /// AddComponent, so it has no Inspector slot of its own to hold a serialized shader
-        /// reference — and a serialized reference is the only thing that keeps the shader from
-        /// being stripped out of a build (see <see cref="CreateLineMaterial"/>).
-        /// </summary>
         public void Build(Vector3Int gridSize, float cellSize, Color color, float lineWidth, Shader shader = null)
         {
             if (_line == null)
@@ -33,7 +18,6 @@ namespace ParticleSim.UI
                 (gridSize.y - 0.5f),
                 (gridSize.z - 0.5f)) * cellSize;
 
-            // 8 corners of the box.
             Vector3 a = new Vector3(min.x, min.y, min.z);
             Vector3 b = new Vector3(max.x, min.y, min.z);
             Vector3 c = new Vector3(max.x, min.y, max.z);
@@ -43,15 +27,15 @@ namespace ParticleSim.UI
             Vector3 g = new Vector3(max.x, max.y, max.z);
             Vector3 h = new Vector3(min.x, max.y, max.z);
 
-            // Single continuous path covering all 12 edges (a few are retraced).
+            // One continuous line strip over all 12 edges; some edges are retraced.
             Vector3[] points =
             {
-                a, b, c, d, a,   // bottom face
-                e,               // up to top-front-left
-                f, b, f,         // top edge + vertical BF (retrace)
-                g, c, g,         // top edge + vertical CG (retrace)
-                h, d, h,         // top edge + vertical DH (retrace)
-                e                // close top face
+                a, b, c, d, a,
+                e,
+                f, b, f,
+                g, c, g,
+                h, d, h,
+                e
             };
 
             _line.useWorldSpace = false;
@@ -72,16 +56,7 @@ namespace ParticleSim.UI
             _line.SetPositions(points);
         }
 
-        /// <summary>
-        /// Prefers the shader handed in from the scene, because only a serialized reference
-        /// guarantees the shader is in the build: `Shader.Find` finds nothing that was
-        /// stripped, and a shader no asset references gets stripped. The `Shader.Find` chain
-        /// below is a fallback, and a misleading one — it "worked" in builds purely because
-        /// `Sprites/Default` happens to sit in Graphics settings' always-included list, so the
-        /// wireframe silently rendered through a sprite shader in players while the Editor
-        /// used URP/Unlit. That never went magenta, so unlike the particles it produced no
-        /// obvious symptom, just a quiet difference between Editor and build.
-        /// </summary>
+        // Prefer the serialized shader: Shader.Find only finds shaders that made it into the build.
         private static Material CreateLineMaterial(Color color, Shader preferredShader)
         {
             Shader shader = preferredShader;

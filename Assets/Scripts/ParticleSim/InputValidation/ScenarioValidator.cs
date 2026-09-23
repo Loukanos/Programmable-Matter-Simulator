@@ -3,13 +3,6 @@ using Newtonsoft.Json.Linq;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Structural validation of the scenario file (RF04/RNF08). Runs against
-    /// the raw JSON tree rather than a deserialized ScenarioData so that a
-    /// wrong JSON type (a string where a number belongs, an object where a
-    /// list belongs) is reported precisely instead of surfacing as a generic
-    /// deserialization exception.
-    /// </summary>
     public static class ScenarioValidator
     {
         private static readonly string[] AxisNames = { "x", "y", "z" };
@@ -28,7 +21,6 @@ namespace ParticleSim.InputValidation
             ValidateParticles(root, gridSize, result);
         }
 
-        /// <summary>Returns the parsed grid size, or null when it is invalid (positions then skip their bounds check).</summary>
         private static int[] ValidateGridSize(JObject root, ValidationResult result)
         {
             JToken token = root["gridSize"];
@@ -74,11 +66,7 @@ namespace ParticleSim.InputValidation
             return valid ? size : null;
         }
 
-        /// <summary>
-        /// maxCycles and idleCyclesLimit are optional. Zero or negative is a
-        /// meaningful value (no cap / check disabled), so only the type is
-        /// checked here.
-        /// </summary>
+        // Zero or negative is valid (no cap / check disabled), so only the type is checked.
         private static void ValidateCycleLimit(JObject root, string field, ValidationResult result)
         {
             JToken token = root[field];

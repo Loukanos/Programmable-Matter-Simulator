@@ -3,18 +3,6 @@ using UnityEngine.InputSystem;
 
 namespace ParticleSim.UI
 {
-    /// <summary>
-    /// Free-fly camera controller for inspecting the simulation during Play Mode.
-    ///
-    /// Controls (New Input System, direct device access):
-    ///   - WASD          : move forward / left / back / right (relative to view)
-    ///   - Q / E         : move down / up (world vertical)
-    ///   - Hold RMB      : look around (mouse drag rotates yaw / pitch)
-    ///   - Mouse wheel   : adjust movement speed
-    ///   - Left Shift    : temporary speed boost while held
-    ///
-    /// Attach this to the Main Camera. It only runs in Play Mode (Update).
-    /// </summary>
     public class FlyCameraController : MonoBehaviour
     {
         [Header("Movement")]
@@ -53,7 +41,6 @@ namespace ParticleSim.UI
 
         private static float NormalizePitch(float angle)
         {
-            // Convert 0..360 euler X into a signed -180..180 value for clamping.
             if (angle > 180f)
                 angle -= 360f;
             return angle;
@@ -66,23 +53,6 @@ namespace ParticleSim.UI
             HandleMovement();
         }
 
-        /// <summary>
-        /// Scales move speed (and the mouse-wheel adjustable min/max range)
-        /// to the diameter of the scene just loaded, so crossing a large
-        /// scenario doesn't feel glacially slow and a small one doesn't
-        /// overshoot on the first key press. Called by
-        /// <see cref="SimulationController.FrameCamera"/> right after it
-        /// computes the particle bounding box for camera framing — the two
-        /// share the same notion of "how big is this scene". Tuned to cross
-        /// the whole bounding box in about a second at the base speed (and
-        /// under half a second with the shift boost) — noticeably faster
-        /// than the previous flat default (8) even for a mid-sized scenario
-        /// like this project's own `scenario.json` (particle-occupied
-        /// diameter ≈ 13.7 → moveSpeed ≈ 13.7, not ≈ 6.8), since a scaling
-        /// factor tuned to reproduce the old default at "typical" scene
-        /// sizes made the feature nearly imperceptible there — exactly the
-        /// case most testing would hit first.
-        /// </summary>
         public void ConfigureForSceneSize(float diameter)
         {
             diameter = Mathf.Max(diameter, 0.01f);
@@ -102,8 +72,7 @@ namespace ParticleSim.UI
 
             bool lookActive = !requireRightMouseToLook || mouse.rightButton.isPressed;
 
-            // When the look gesture begins, re-sync so the camera never snaps,
-            // even if something else moved it (e.g. SimulationManager framing).
+            // Re-sync from the transform: FrameCamera may have moved the camera since the last look.
             if (lookActive && !_looking)
                 SyncRotationFromTransform();
 
@@ -130,7 +99,7 @@ namespace ParticleSim.UI
             if (Mathf.Approximately(scrollY, 0f))
                 return;
 
-            // Mouse scroll reports in steps of ~120 per notch on most platforms.
+            // Mouse scroll reports about 120 per notch on most platforms.
             float notches = scrollY / 120f;
             if (Mathf.Approximately(notches, 0f))
                 notches = Mathf.Sign(scrollY);
@@ -162,7 +131,6 @@ namespace ParticleSim.UI
             if (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed)
                 speed *= boostMultiplier;
 
-            // Horizontal axes follow the camera orientation; vertical stays world up.
             Vector3 move =
                 transform.right * input.x +
                 transform.forward * input.z +

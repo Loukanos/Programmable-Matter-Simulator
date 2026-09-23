@@ -3,14 +3,6 @@ using System.Text;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Accumulates every problem found while validating one input file.
-    /// Validation deliberately collects all errors instead of stopping at the
-    /// first one, so a single failed load tells the user everything that is
-    /// wrong with the file rather than one problem per attempt. A file is
-    /// only loaded when the result is still empty (RF04/RNF08: any lexical,
-    /// syntactic or semantic error blocks the load).
-    /// </summary>
     public class ValidationResult
     {
         private readonly List<string> _errors = new List<string>();
@@ -20,11 +12,6 @@ namespace ParticleSim.InputValidation
 
         public void AddError(string message) => _errors.Add(message);
 
-        /// <summary>
-        /// Formats the collected errors as one human-readable block, capped at
-        /// <paramref name="maxLines"/> entries so a badly broken file cannot
-        /// flood the on-screen panel.
-        /// </summary>
         public string ToMessage(int maxLines = 10)
         {
             if (IsValid) return string.Empty;

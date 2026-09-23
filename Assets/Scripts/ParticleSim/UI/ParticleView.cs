@@ -3,9 +3,6 @@ using ParticleSim.Core;
 
 namespace ParticleSim.UI
 {
-    /// <summary>
-    /// Visual representation of a particle (color and movement animation).
-    /// </summary>
     public class ParticleView : MonoBehaviour
     {
         public Particle Particle { get; private set; }
@@ -16,15 +13,6 @@ namespace ParticleSim.UI
         private Renderer _renderer;
         private Color _originalColor = Color.white;
 
-        /// <summary>
-        /// True once this particle's behavior ran `setColor()`, i.e. the color
-        /// on screen was chosen by the `behavior.json` rather than inherited
-        /// from <see cref="SimulationController.particleColor"/>. It's what
-        /// lets <see cref="SetBaseColor"/> change the default color live
-        /// without wiping a color the simulation deliberately assigned.
-        /// Cleared by <see cref="ResetVisual"/>, since a reset puts every
-        /// particle back on the default.
-        /// </summary>
         private bool _hasBehaviorColor;
 
         private Vector3 _animStart;
@@ -58,25 +46,12 @@ namespace ParticleSim.UI
             _hasBehaviorColor = false;
         }
 
-        /// <summary>
-        /// Applies a color chosen by the particle's own behavior (the
-        /// `setColor()` action, via SimulationEngine's OnColorChanged). Marks
-        /// this particle as behavior-colored so a later change to the default
-        /// particle color leaves it alone.
-        /// </summary>
         public void SetColor(Color color)
         {
             _hasBehaviorColor = true;
             ApplyColor(color);
         }
 
-        /// <summary>
-        /// Changes the *default* color — what this particle shows while its
-        /// behavior hasn't assigned one. Called when the default is edited
-        /// live from the UI. A particle already colored by `setColor()` keeps
-        /// that color; only its fallback is updated, so it still turns the new
-        /// default on the next <see cref="ResetVisual"/>.
-        /// </summary>
         public void SetBaseColor(Color color)
         {
             _originalColor = color;
@@ -100,13 +75,6 @@ namespace ParticleSim.UI
             _renderer.SetPropertyBlock(mpb);
         }
 
-        /// <summary>
-        /// Changes how long a grid-to-grid move takes to animate. Safe to call
-        /// mid-animation: only the duration the in-flight interpolation is
-        /// measured against changes, the animation itself is not restarted or
-        /// cut short (which is why this exists instead of re-calling
-        /// <see cref="Bind"/>, whose position snap would be visible).
-        /// </summary>
         public void SetMoveDuration(float moveDuration)
         {
             _moveDuration = Mathf.Max(0f, moveDuration);

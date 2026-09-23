@@ -6,58 +6,8 @@ using ParticleSim.Core;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Syntactic and semantic validation phases (RF04/RNF08) for a single
-    /// condition or action string, on top of the token stream produced by
-    /// <see cref="ExpressionLexer"/>. As a side effect of validating, also
-    /// builds the AST (<see cref="ConditionNode"/>/<see cref="ActionNode"/>,
-    /// in Core) that SimulationEngine evaluates — parsing happens here, once,
-    /// never again at runtime.
-    ///
-    /// The condition grammar mirrors the interpreter's precedence — Not binds
-    /// tighter than And, which binds tighter than Or, and there is no
-    /// parenthesized grouping, so '(' only ever opens a call:
-    ///
-    ///   Or    := And ( 'Or' And )*
-    ///   And   := Not ( 'And' Not )*
-    ///   Not   := 'Not'* Term
-    ///   Term  := 'true' | 'false' | ConditionReference | Call
-    ///   Call  := Identifier '(' ( Argument ( ',' Argument )* )? ')'
-    ///   Argument := Token | Identifier '(' ( Argument ( ',' Argument )* )? ')'
-    ///
-    /// A ConditionReference is a bare identifier (not followed by '(') that
-    /// names an entry in the file's "definitions" block — resolved into that
-    /// definition's own tree by InputValidation.DefinitionResolver, after
-    /// validation, before SimulationEngine ever sees it (see
-    /// Core.ConditionReferenceNode). An Argument may itself be a nested call
-    /// to any FunctionRole.Value function — recursively, so
-    /// opposite(state('dir')) is valid — which is why argument collection can
-    /// no longer assume "one token per argument". This includes the 7
-    /// pure "read" functions (state/opposite/messageValue/myId/
-    /// countNeighbors/canMove/moveResult) plus the two boolean-producing
-    /// condition functions that are also dual-role (hasNeighbor,
-    /// checkMessage — see Grammar.FunctionRole); checkState is the
-    /// deliberate exception that stays Condition-only and can never be
-    /// nested.
-    ///
-    /// An action is a single Call (plus the bare 'wait' form).
-    ///
-    /// Only the first problem inside one expression is reported: later errors
-    /// in the same string are usually cascades of the first, and the file is
-    /// rejected either way. Errors across different expressions are all
-    /// collected (see <see cref="ValidationResult"/>).
-    /// </summary>
     public static class ExpressionValidator
     {
-        /// <summary>
-        /// Validates a block's "condition" and builds its AST. An absent or
-        /// empty condition is valid — it always evaluates true — and yields a
-        /// null node (SimulationEngine.ConditionEvaluator treats null the
-        /// same way). <paramref name="definitionNames"/> is the set of names
-        /// declared in the file's "definitions" block (empty/null when there
-        /// is none) — a bare identifier not matching a known function is
-        /// accepted as a reference only when it is in this set.
-        /// </summary>
         public static bool ValidateCondition(string expression, string context, ValidationResult result, ISet<string> definitionNames, out ConditionNode node)
         {
             node = null;
@@ -79,12 +29,6 @@ namespace ParticleSim.InputValidation
             return true;
         }
 
-        /// <summary>
-        /// Validates one entry of a block's "actions" and builds its AST.
-        /// <paramref name="isOnInit"/> enables the semantic rule that
-        /// movement is not allowed at init time. Actions never reference
-        /// named conditions, so there is no definitionNames parameter here.
-        /// </summary>
         public static bool ValidateAction(string action, string context, bool isOnInit, ValidationResult result, out ActionNode node)
         {
             node = null;
@@ -111,7 +55,6 @@ namespace ParticleSim.InputValidation
             return true;
         }
 
-        /// <summary>Recursive-descent parser/validator over one expression's tokens. Returns the built node on success, null on failure (see Error).</summary>
         private class Parser
         {
             private readonly List<Token> _tokens;
@@ -238,10 +181,6 @@ namespace ParticleSim.InputValidation
                 if (LanguageVocabulary.IsLogicalKeyword(token.Value))
                     return Fail($"operador lógico '{token.Text}' fora de lugar");
 
-                // A bare identifier (no '(' following) names a condição
-                // nomeada, not a function call — functions always require
-                // parentheses in condition position (none of hasNeighbor/
-                // checkState/checkMessage has a zero-argument form).
                 if (!NextIsLParen() && _definitionNames.Contains(token.Value))
                 {
                     Advance();
@@ -281,8 +220,6 @@ namespace ParticleSim.InputValidation
 
                 if (Current == null || Current.Kind != TokenKind.LParen)
                 {
-                    // 'wait' is the one function that may also be written bare,
-                    // without parentheses.
                     if (signature.AcceptsArgumentCount(0))
                         return new FunctionCallNode { FunctionName = signature.Name, Arguments = Array.Empty<ValueNode>() };
                     Fail($"esperava '(' após '{signature.Name}'");
@@ -295,16 +232,6 @@ namespace ParticleSim.InputValidation
                 return new FunctionCallNode { FunctionName = signature.Name, Arguments = arguments.ToArray() };
             }
 
-            /// <summary>
-            /// Parses one argument: a nested read-function call — recognized
-            /// purely by shape, an identifier immediately followed by '(' —
-            /// or a single token used as-is, the only shape arguments had
-            /// before nested calls existed. Whether the result is actually
-            /// allowed in its slot (bare token vs call, and which functions)
-            /// is checked afterward by ValidateValueArgument, once the
-            /// enclosing call's overload — and so each slot's expected
-            /// ArgumentKind — is resolved by argument count.
-            /// </summary>
             private ValueNode ParseValueArgument()
             {
                 Token token = Current;
@@ -323,7 +250,7 @@ namespace ParticleSim.InputValidation
                     return null;
                 }
 
-                Advance(); // the function name; ParseArgumentList consumes the '(' NextIsLParen already confirmed.
+                Advance();
 
                 List<ValueNode> arguments = ParseArgumentList(signature);
                 if (arguments == null) return null;
@@ -331,15 +258,9 @@ namespace ParticleSim.InputValidation
                 return new ValueCallNode { FunctionName = signature.Name, Arguments = arguments.ToArray() };
             }
 
-            /// <summary>
-            /// Parses "(" arg (',' arg)* ")" for an already-identified
-            /// function — shared by ParseFunctionCall and ParseValueArgument
-            /// so the comma/closing-paren handling exists once. Assumes the
-            /// current token is '(' and consumes it.
-            /// </summary>
             private List<ValueNode> ParseArgumentList(FunctionSignature signature)
             {
-                Advance(); // '('
+                Advance();
 
                 var arguments = new List<ValueNode>();
                 if (Current != null && Current.Kind == TokenKind.RParen)
@@ -389,18 +310,6 @@ namespace ParticleSim.InputValidation
                 return ValidateCheckStateOperandRule(signature, arguments);
             }
 
-            /// <summary>
-            /// Picks which same-length overload applies. Only sendMessage has
-            /// more than one candidate for a given argument count today (2:
-            /// directed-no-payload `(dir, tag)` vs broadcast-with-payload
-            /// `(tag, payload)`) — resolved by whether argument 0 is
-            /// direction-shaped, via Core.LanguageVocabulary.IsDirectionShaped
-            /// (shared with SimulationEngine.SimulationEngine.IsDirected,
-            /// which re-derives this exact decision at runtime from the same
-            /// ValueNode shape, so the two can never disagree about which
-            /// overload a call matched — see that method's doc comment for
-            /// the sendMessage('X+', 5) edge case this implies).
-            /// </summary>
             private static ArgumentKind[] ResolveOverload(FunctionSignature signature, List<ValueNode> arguments)
             {
                 ArgumentKind[][] candidates = signature.OverloadsFor(arguments.Count);
@@ -427,8 +336,8 @@ namespace ParticleSim.InputValidation
                         Fail($"{where} espera uma direção — '{call.FunctionName}(...)' não produz uma direção");
                         return false;
                     }
-                    if (kind == ArgumentKind.Value) return true; // any FunctionRole.Value function produces a comparable value
-                    if (kind == ArgumentKind.NumericValue) return true; // accepted syntactically; not statically known to produce a number — see SimulationEngine.ResolvePayload for the runtime fallback
+                    if (kind == ArgumentKind.Value) return true;
+                    if (kind == ArgumentKind.NumericValue) return true;
 
                     Fail($"{where} não aceita uma função aninhada — deve ser um literal simples");
                     return false;
@@ -459,7 +368,6 @@ namespace ParticleSim.InputValidation
                             }
                             return true;
                         }
-                        // An unquoted word also names a state key at runtime.
                         if (token.Kind == TokenKind.Identifier && !LanguageVocabulary.IsBooleanLiteral(token.Value)) return true;
                         Fail($"{where} deve ser o nome de uma variável de estado, mas é '{token.Text}'");
                         return false;
@@ -488,14 +396,6 @@ namespace ParticleSim.InputValidation
                 return true;
             }
 
-            /// <summary>
-            /// TCC rule: the magnitude operators (&gt;, &lt;, &gt;=, &lt;=) may only compare
-            /// against a numeric literal. == and != stay valid for any type.
-            /// Only checked when the value is a plain literal — a computed
-            /// value (state(...), moveResult(), ...) can't be verified
-            /// until runtime, the same already-documented limitation as a
-            /// state key's type.
-            /// </summary>
             private bool ValidateCheckStateOperandRule(FunctionSignature signature, List<ValueNode> arguments)
             {
                 if (!string.Equals(signature.Name, LanguageVocabulary.CheckState, StringComparison.OrdinalIgnoreCase)) return true;
@@ -511,21 +411,18 @@ namespace ParticleSim.InputValidation
                 return false;
             }
 
-            /// <summary>The operator an argument denotes, whether written bare (&gt;=) or quoted ('&gt;='), with any padding removed.</summary>
             private static string OperatorTextOf(Token token) => token.Value?.Trim();
 
             private static bool IsNumericLiteral(Token token)
             {
                 if (token.Kind == TokenKind.Number) return true;
 
-                // A quoted number ('5') is still compared numerically at runtime.
                 if (token.Kind == TokenKind.QuotedString)
                     return double.TryParse(token.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
 
                 return false;
             }
 
-            /// <summary>Describes a (possibly combined) role for an error message, e.g. "condição/valor" for a dual-role function.</summary>
             private static string RoleName(FunctionRole role)
             {
                 var parts = new List<string>();

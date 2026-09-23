@@ -6,29 +6,8 @@ using ParticleSim.Core;
 
 namespace ParticleSim.SimulationEngine
 {
-    /// <summary>
-    /// Evaluates a condition AST (hasNeighbor, checkState, checkMessage,
-    /// canMove, And/Or/Not) for a particle. The AST is built once at load time
-    /// by InputValidation.ExpressionValidator (with every named-condition
-    /// reference already spliced into its real tree by
-    /// InputValidation.DefinitionResolver — this class never sees a
-    /// ConditionReferenceNode); this class only ever walks it, never
-    /// re-parses a string — see CLAUDE.md.
-    ///
-    /// EvaluateHasNeighbor/EvaluateCheckMessage are public because they are
-    /// also the canonical implementation when hasNeighbor/checkMessage are
-    /// used nested inside checkState/setState instead of as a direct
-    /// condition — SimulationEngine.ValueResolver.ResolveCall calls back into
-    /// them for exactly that case, so the evaluation logic is identical in
-    /// both roles by construction, not by keeping two implementations in
-    /// sync. canMove is the mirror image: its canonical implementation
-    /// (ValueResolver.ResolveCanMove) lives on the ValueResolver side, and
-    /// EvaluateFunctionCall below calls into that when canMove is used as a
-    /// direct condition.
-    /// </summary>
     public static class ConditionEvaluator
     {
-        /// <summary>A null node means an absent/empty "condition", which always evaluates true.</summary>
         public static bool Evaluate(ConditionNode node, EvaluationContext ctx)
         {
             if (node == null) return true;
@@ -57,9 +36,6 @@ namespace ParticleSim.SimulationEngine
                     return EvaluateFunctionCall(call, ctx);
 
                 default:
-                    // Includes ConditionReferenceNode — should never reach here
-                    // post-BehaviorLoader, which resolves every reference
-                    // before storing ActionBlock.ParsedCondition.
                     Debug.LogWarning($"[ConditionEvaluator] Nó de condição inesperado: {node.GetType().Name}");
                     return false;
             }
@@ -76,36 +52,17 @@ namespace ParticleSim.SimulationEngine
             if (call.FunctionName == LanguageVocabulary.CanMove)
                 return ValueResolver.ResolveCanMove(call.Arguments, ctx);
 
-            // Unreachable once a file has passed validation — Grammar only
-            // registers these four as FunctionRole.Condition — kept as a
-            // defensive fallback rather than an exception, matching this
-            // codebase's general preference for not crashing the simulation.
             Debug.LogWarning($"[ConditionEvaluator] Função de condição desconhecida: {call.FunctionName}");
             return false;
         }
 
-        // hasNeighbor always takes exactly one direction argument in the
-        // expression grammar (unlike the onTouch(DIR) event key, which may
-        // omit it — see HasNeighbor below). When that argument is a
-        // direction-as-variable expression that fails to resolve, this
-        // returns false directly rather than calling HasNeighbor with a null
-        // direction, which would otherwise mean "check all six faces" — the
-        // bare-onTouch convention, not what an unresolvable direction means
-        // here (TCC extension: behaves as "no neighbor").
+        // An unresolved direction means no neighbor; passing null to HasNeighbor would check all six faces instead.
         public static bool EvaluateHasNeighbor(ValueNode[] args, EvaluationContext ctx)
         {
             string direction = ValueResolver.ResolveDirection(args[0], ctx);
             return direction != null && HasNeighbor(ctx.Particle, ctx.Grid, direction);
         }
 
-        /// <summary>
-        /// Verifica contato com um vizinho. Com <paramref name="direction"/>
-        /// informado (X+, X-, Y+, Y-, Z+ ou Z-), checa apenas aquela face;
-        /// caso contrário, checa as seis faces (usado por onTouch sem
-        /// direção específica). Recebe uma string diretamente (não um nó da
-        /// AST) porque a direção de onTouch(DIR) vem da chave do evento JSON
-        /// (Grammar.ParseEventKey), nunca fez parte da gramática de expressão.
-        /// </summary>
         public static bool HasNeighbor(Particle particle, IGridQuery grid, string direction = null)
         {
             if (string.IsNullOrWhiteSpace(direction))
@@ -125,31 +82,11 @@ namespace ParticleSim.SimulationEngine
                 return false;
             }
 
-            // Note: intentionally NOT grid.ApplyBoundary — that clamps a
-            // beyond-the-edge position back onto the particle's OWN cell (see
-            // ApplyBoundary's doc comment), which would make the occupancy
-            // check find the particle itself and report a false neighbor at
-            // every grid edge. Off-grid simply means no neighbor there.
+            // Not ApplyBoundary: clamping an off-grid cell lands on this particle's own cell, making it its own neighbor.
             Vector3Int target = particle.GridPosition + delta;
             return grid.IsInBounds(target) && grid.IsOccupied(target);
         }
 
-        /// <summary>
-        /// Every message in the particle's current-cycle inbox that an
-        /// onMessage/onMessage(DIR) event should react to: with
-        /// <paramref name="direction"/> given, only messages whose origin
-        /// direction (Message.Direction) matches; otherwise (bare
-        /// onMessage), every message. SimulationEngine.Step() runs an
-        /// event's blocks once per message this yields — never once per
-        /// event regardless of count — specifically so that several
-        /// messages arriving in the same cycle (e.g. the same tag from
-        /// several different senders) are each evaluated on their own pass;
-        /// an empty result is the "no matching message" case, equivalent to
-        /// the old existence-gate skipping the event entirely. Unlike
-        /// HasNeighbor/onTouch, a "touch" is a single yes/no per direction
-        /// (a grid cell holds at most one particle), so onTouch has no
-        /// equivalent multiplicity concern and stays a simple gate.
-        /// </summary>
         public static IEnumerable<Message> MatchingMessages(Particle particle, string direction)
         {
             if (string.IsNullOrWhiteSpace(direction))
@@ -180,25 +117,6 @@ namespace ParticleSim.SimulationEngine
             return false;
         }
 
-        // checkMessage has no operator parameter like checkState: it is
-        // always a simple equality comparison against Message.Content.
-        //
-        // Inside an onMessage/onMessage(DIR) block, ctx.CurrentMessage is
-        // set to the one specific message this pass is about (see
-        // MatchingMessages/EvaluationContext) — checkMessage checks only
-        // that message, not the whole inbox, which is what lets N same-tag
-        // messages from N different senders each get their own independent
-        // pass instead of every pass seeing whichever one happens to be
-        // first in Inbox order. Outside an onMessage block (onInit/onStep/
-        // onTouch, or checkMessage nested as a value from one of those),
-        // CurrentMessage is null and checkMessage falls back to "does any
-        // message in the inbox match" — an existence check, since there is
-        // no single message this evaluation is about. Either way, the
-        // first match becomes ctx.MatchedMessage, for messageValue() to read
-        // later in this same block's actions — a later checkMessage call
-        // that also matches (e.g. the other side of an And) never
-        // overwrites it (moot inside onMessage, where every checkMessage in
-        // the same pass necessarily checks the same CurrentMessage).
         public static bool EvaluateCheckMessage(ValueNode[] args, EvaluationContext ctx)
         {
             object target = ValueResolver.Resolve(args[0], ctx);
@@ -219,7 +137,6 @@ namespace ParticleSim.SimulationEngine
             return false;
         }
 
-        /// <summary>The token text of an argument slot that validation guarantees is always a plain literal (StateKey/RelationalOperator), never a nested call.</summary>
         private static string LiteralText(ValueNode node) => ((LiteralValueNode)node).Token.Value;
 
         private static bool AreEqual(object current, object target)
@@ -235,9 +152,6 @@ namespace ParticleSim.SimulationEngine
             return current.ToString().Trim().Equals(target.ToString().Trim(), StringComparison.OrdinalIgnoreCase);
         }
 
-        // >, <, >=, <= comparam numericamente quando ambos os lados são
-        // números; caso contrário caem para comparação lexicográfica de
-        // strings (ordinal, case-insensitive).
         private static bool CompareValues(object current, object target, string op)
         {
             if (current == null || target == null) return false;

@@ -5,21 +5,6 @@ using UnityEngine;
 
 namespace ParticleSim.ParticleManager
 {
-    /// <summary>
-    /// Módulo Gerenciador de Partículas: instancia as partículas na grade
-    /// (lattice) a partir dos dados de cenário já validados, mantém a
-    /// estrutura de ocupação espacial e resolve consultas de vizinhança e
-    /// de contorno. Não conhece GameObjects, materiais, cor ou qualquer
-    /// classe de ParticleSim.UI — a interpretação de regras é papel do
-    /// Motor de Simulação.
-    ///
-    /// Depende de InputValidation, e só pelo tipo ValidatedSimulation: é o
-    /// "modelo de dados estruturado" que a Figura 7 do TCC diz que o módulo de
-    /// Entrada e Validação disponibiliza ao Gerenciador. O Motor de Simulação,
-    /// por sua vez, referencia esta classe concretamente (enumera Particles e
-    /// reconstrói o índice a cada ciclo); IGridQuery é o recorte que o
-    /// interpretador da linguagem enxerga, não o que o Motor usa.
-    /// </summary>
     public class ParticleManager : IGridQuery
     {
         private readonly List<Particle> _particles = new List<Particle>();
@@ -29,20 +14,6 @@ namespace ParticleSim.ParticleManager
 
         public IReadOnlyList<Particle> Particles => _particles;
  
-        /// <summary>
-        /// Limpa o estado atual e instancia uma nova população de
-        /// partículas a partir do cenário validado.
-        ///
-        /// Aceita só <see cref="ValidatedSimulation"/>, nunca um
-        /// <see cref="ScenarioData"/> solto: como aquele tipo só pode ser obtido
-        /// passando pela validação, é o tipo do parâmetro — e não a ordem em que
-        /// alguém chama as coisas — que garante que nada malformado chega aqui.
-        /// Por isso não há checagem defensiva de posição no laço abaixo: o
-        /// ScenarioValidator já rejeita posição ausente, fora do formato
-        /// [x, y, z], com eixo não inteiro ou fora da grade, e antes dessa
-        /// garantia existir havia aqui um ramo que avisava e ignorava a
-        /// partícula — agora comprovadamente inalcançável.
-        /// </summary>
         public void BuildFromScenario(ValidatedSimulation simulation)
         {
             ScenarioData scenario = simulation.Scenario;
@@ -61,7 +32,6 @@ namespace ParticleSim.ParticleManager
             RefreshGridLookup();
         }
  
-        /// <summary>Reconstrói o índice espacial a partir da posição atual de cada partícula.</summary>
         public void RefreshGridLookup()
         {
             _gridLookup.Clear();
@@ -69,31 +39,11 @@ namespace ParticleSim.ParticleManager
                 _gridLookup[p.GridPosition] = p;
         }
  
-        /// <summary>
-        /// Ocupação da célula, sem expor quem a ocupa — é o que o
-        /// interpretador da linguagem declarativa enxerga via IGridQuery
-        /// (RN09). Quem precisa da partícula em si usa TryGetParticleAt
-        /// abaixo, que não faz parte daquele contrato.
-        /// </summary>
         public bool IsOccupied(Vector3Int position) => _gridLookup.ContainsKey(position);
 
-        /// <summary>
-        /// Obtém a partícula que ocupa a posição. Deliberadamente fora de
-        /// IGridQuery: só o Motor de Simulação usa (entrega de mensagem e
-        /// resolução de colisão), e ele referencia esta classe concretamente.
-        /// </summary>
         public bool TryGetParticleAt(Vector3Int position, out Particle particle) =>
             _gridLookup.TryGetValue(position, out particle);
  
-        /// <summary>
-        /// Clamps a target position to the grid bounds. Since every move()
-        /// changes exactly one axis by ±1, a position that lands outside the
-        /// grid is always exactly one cell past a boundary the particle was
-        /// already sitting on — clamping it therefore always resolves back to
-        /// the particle's own original position, i.e. the movement is
-        /// cancelled in place, per the single supported boundary behavior
-        /// (see CLAUDE.md).
-        /// </summary>
         public Vector3Int ApplyBoundary(Vector3Int position)
         {
             position.x = Mathf.Clamp(position.x, 0, GridSize.x - 1);
@@ -107,7 +57,6 @@ namespace ParticleSim.ParticleManager
             position.y >= 0 && position.y < GridSize.y &&
             position.z >= 0 && position.z < GridSize.z;
 
-        /// <summary>Restaura todas as partículas à posição e estado iniciais.</summary>
         public void ResetParticles()
         {
             foreach (Particle p in _particles)

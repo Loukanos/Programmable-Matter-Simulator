@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Loads a scenario JSON file. The file is only deserialized into a
-    /// <see cref="ScenarioData"/> after <see cref="ScenarioValidator"/> accepts
-    /// it — any validation error blocks the load (RF04/RNF08) and is reported
-    /// through the returned <see cref="ValidationResult"/>.
-    /// </summary>
     public static class ScenarioLoader
     {
         public static ScenarioData LoadFromFile(string absolutePath, out ValidationResult validation)

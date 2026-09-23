@@ -1,11 +1,3 @@
-<!--
-2026-06-04 AI-Tag
-This was created with the help of Assistant, a Unity Artificial Intelligence product.
--->
-<!--
-2026-06-04 AI-Tag
-This was created with the help of Assistant, a Unity Artificial Intelligence product.
--->
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Style src="SimulationUI.uss" />
     <ui:VisualElement name="root" class="root" picking-mode="Ignore">

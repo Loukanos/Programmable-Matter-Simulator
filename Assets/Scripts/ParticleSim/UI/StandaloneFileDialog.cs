@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace ParticleSim.UI
 {
-    /// <summary>
-    /// Opens the native Windows "Open File" dialog so the user can pick a file
-    /// from their PC. Works both in the Editor (Play Mode) and in Windows
-    /// standalone builds, with no external packages.
-    /// </summary>
     public static class StandaloneFileDialog
     {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
@@ -48,10 +43,6 @@ namespace ParticleSim.UI
         }
 #endif
 
-        /// <summary>
-        /// Shows an "Open File" dialog and returns the selected absolute path,
-        /// or null if the user cancelled or the platform is unsupported.
-        /// </summary>
         public static string OpenFile(string title, string filter = "JSON files\0*.json\0All files\0*.*\0\0")
         {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
@@ -59,7 +50,6 @@ namespace ParticleSim.UI
             ofn.lStructSize = Marshal.SizeOf(ofn);
             ofn.lpstrFilter = filter;
             
-            // Allocate a buffer for the file path
             const int maxFile = 4096;
             IntPtr buffer = Marshal.AllocHGlobal(maxFile * Marshal.SystemDefaultCharSize);
             for (int i = 0; i < maxFile * Marshal.SystemDefaultCharSize; i++) Marshal.WriteByte(buffer, i, 0);

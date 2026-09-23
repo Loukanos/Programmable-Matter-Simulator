@@ -7,15 +7,6 @@ using ParticleSim.InputValidation;
 
 namespace ParticleSim.UI
 {
-    /// <summary>
-    /// Orquestrador da simulação. É o único MonoBehaviour que conhece todos
-    /// os módulos: aciona o carregamento (Entrada e Validação), a
-    /// instanciação (ParticleManager), o motor de ciclos (SimulationEngine),
-    /// o consolidador de métricas (MetricsCalculator) e cuida da
-    /// visualização (câmera, bounds, views das partículas). Substitui o
-    /// antigo SimulationManager, que concentrava as cinco responsabilidades
-    /// em uma única classe.
-    /// </summary>
     public class SimulationController : MonoBehaviour
     {
         [Header("Arquivos de dados (relativos a StreamingAssets)")]
@@ -60,7 +51,6 @@ namespace ParticleSim.UI
         private float _timer;
 
         public bool HasData { get; private set; }
-        /// <summary>Descriptive validation errors from the last failed load, one property per file so the UI can show each in its own file card. Null when that file's last load succeeded.</summary>
         public string LastScenarioLoadError { get; private set; }
         public string LastBehaviorLoadError { get; private set; }
         public int ParticleCount => _particleManager.Particles.Count;
@@ -81,8 +71,6 @@ namespace ParticleSim.UI
             _engine = new SimulationEngine.SimulationEngine(_particleManager);
             _metrics = new MetricsCalculator.MetricsCalculator(_engine);
 
-            // Motor de Simulação não conhece ParticleView: a UI que assina
-            // os eventos e decide como representar visualmente a mudança.
             _engine.OnParticleMoved += (particle, _) =>
             {
                 if (_views.TryGetValue(particle.Id, out ParticleView view))
@@ -101,14 +89,8 @@ namespace ParticleSim.UI
 
         private void Update()
         {
-            // Frame rate reflects the app's render rate, not the simulation's
-            // run state, so it ticks even while paused/before Run is pressed
-            // (matches the previous SimulationUIController-owned behavior).
             _metrics?.UpdateFrameRate(Time.unscaledDeltaTime);
 
-            // On-demand re-framing works regardless of run state — useful to
-            // recenter on a structure that has drifted out of view while
-            // paused, not just while running.
             if (HasData && Keyboard.current != null && Keyboard.current[reframeKey].wasPressedThisFrame)
                 FrameCamera();
 
@@ -116,6 +98,7 @@ namespace ParticleSim.UI
 
             _metrics.Tick(Time.deltaTime);
             _timer += Time.deltaTime;
+            // if, not while: with a zero step interval a while loop would never exit.
             if (_timer >= stepInterval)
             {
                 _timer -= stepInterval;
@@ -127,17 +110,6 @@ namespace ParticleSim.UI
             }
         }
 
-        /// <summary>
-        /// Carrega cenário e comportamento, reconstrói partículas e views,
-        /// e opcionalmente já inicia a execução.
-        ///
-        /// Toda a validação — de cada arquivo e a cruzada entre os dois — mora
-        /// em <see cref="ValidatedSimulation.Load"/>, não aqui: este método só
-        /// pede o carregamento e repassa os erros. É o fluxo da Figura 7 ("a
-        /// Interface aciona o carregamento, o módulo de Entrada e Validação os
-        /// valida"), e é o que faz o tipo recebido pelo Gerenciador de Partículas
-        /// carregar a garantia de validação consigo.
-        /// </summary>
         public bool LoadSimulation(string scenarioPath, string behaviorPath, bool startRunning = false)
         {
             ValidatedSimulation loaded = ValidatedSimulation.Load(
@@ -149,13 +121,6 @@ namespace ParticleSim.UI
             {
                 LastScenarioLoadError = scenarioValidation.IsValid ? null : scenarioValidation.ToMessage();
                 LastBehaviorLoadError = behaviorValidation.IsValid ? null : behaviorValidation.ToMessage();
-                // Aviso (amarelo), não erro: um arquivo inválido fornecido pelo
-                // usuário é uma situação prevista, já explicada nas caixas de erro
-                // da interface — não um defeito do programa. Vermelho fica
-                // reservado para configuração quebrada que exige correção no
-                // código ou na cena (shader não atribuído, elemento de UI
-                // ausente). Também evita que o "Error Pause" do console pause o
-                // Play Mode a cada arquivo inválido testado de propósito.
                 Debug.LogWarning($"[SimulationController] Falha ao carregar:\n{LastScenarioLoadError}\n{LastBehaviorLoadError}");
                 return false;
             }
@@ -216,17 +181,7 @@ namespace ParticleSim.UI
             _gridBounds.Build(_particleManager.GridSize, cellSize, gridBoundsColor, gridBoundsLineWidth, gridBoundsShader);
         }
 
-        /// <summary>
-        /// Builds the shared particle material. **Keep `particleShader` assigned in the
-        /// Inspector.** `Shader.Find` only finds shaders that are actually in the build, and a
-        /// shader nothing references gets stripped — so the `Shader.Find` path below works in
-        /// the Editor (where every shader is loaded) and then silently fails in a player,
-        /// landing on the magenta error shader, which ignores the colors set on it. That is
-        /// exactly what happened once: the scene's serialized reference to URP/Lit was dropped
-        /// along with a duplicate component, and every particle turned pink in builds only.
-        /// A serialized reference is what guarantees the shader survives into the build; the
-        /// error below exists so the next occurrence is one console line instead of a hunt.
-        /// </summary>
+        // Keep particleShader assigned in the Inspector: Shader.Find alone fails in builds and the particles turn pink.
         private Material CreateParticleMaterial()
         {
             Shader shader = particleShader != null ? particleShader
@@ -241,24 +196,11 @@ namespace ParticleSim.UI
             return mat;
         }
 
-        // ---------- Live visual/pacing settings ----------
-        // These six fields are serialized and so appear in the Inspector, but
-        // five of them are only *read* while building (BuildViews /
-        // BuildGridBounds), so editing them there during Play Mode does
-        // nothing until the next load. The setters below are what make them
-        // actually live for the UI: each one writes the field and then
-        // re-applies it to whatever already exists. None of them touch
-        // simulation state — no particle position, internal state, cycle
-        // count or metric is read or written here, so changing any of them
-        // mid-run cannot alter the outcome of a scenario.
-
-        /// <summary>Seconds between cycles. Already live: <see cref="Update"/> reads it every frame.</summary>
         public void SetStepInterval(float seconds)
         {
             stepInterval = Mathf.Max(0f, seconds);
         }
 
-        /// <summary>Cube size as a fraction of a cell. Rescales the existing cubes in place.</summary>
         public void SetCubeFill(float fill)
         {
             cubeFill = Mathf.Clamp(fill, 0.1f, 1f);
@@ -266,12 +208,6 @@ namespace ParticleSim.UI
                 view.transform.localScale = Vector3.one * cellSize * cubeFill;
         }
 
-        /// <summary>
-        /// Default particle color. Updates the shared material (so anything
-        /// still rendering straight from it follows) and each view's fallback
-        /// color. Particles currently colored by their own `setColor()` keep
-        /// that color — see <see cref="ParticleView.SetBaseColor"/>.
-        /// </summary>
         public void SetParticleColor(Color color)
         {
             particleColor = color;
@@ -286,7 +222,6 @@ namespace ParticleSim.UI
                 view.SetBaseColor(color);
         }
 
-        /// <summary>Seconds a cube takes to slide between cells. Applies to in-flight animations too.</summary>
         public void SetMoveAnimationDuration(float seconds)
         {
             moveAnimationDuration = Mathf.Max(0f, seconds);
@@ -294,18 +229,12 @@ namespace ParticleSim.UI
                 view.SetMoveDuration(moveAnimationDuration);
         }
 
-        /// <summary>
-        /// Shows/hides the grid wireframe. Rebuilds only the bounds object —
-        /// <see cref="BuildGridBounds"/> destroys and recreates one decorative
-        /// GameObject and never touches particles or the engine.
-        /// </summary>
         public void SetShowGridBounds(bool show)
         {
             showGridBounds = show;
             if (HasData) BuildGridBounds();
         }
 
-        /// <summary>Grid wireframe color. Same cheap rebuild as <see cref="SetShowGridBounds"/>.</summary>
         public void SetGridBoundsColor(Color color)
         {
             gridBoundsColor = color;
@@ -327,26 +256,6 @@ namespace ParticleSim.UI
             _engine.ExecuteOnInit();
         }
 
-        /// <summary>
-        /// Positions the camera so every particle is visible, computed from
-        /// the particles' actual occupied bounding box — never the declared
-        /// gridSize, which in several scenarios is far larger than the
-        /// region particles actually use (e.g. a tall, mostly-empty grid;
-        /// framing by gridSize there would leave the real structure tiny on
-        /// screen). Uses the camera's real field of view/aspect to guarantee
-        /// the whole bounding sphere of that box fits in frame (see
-        /// <see cref="FramingDistance"/>), rather than a fixed distance
-        /// multiplier that could clip content depending on the scenario's
-        /// shape or the camera's aspect ratio. Also scales
-        /// <see cref="FlyCameraController"/>'s move speed to the scene's
-        /// size, so crossing a large scenario doesn't feel glacially slow
-        /// (and a small one doesn't overshoot on the first key press).
-        /// Public — and re-checked every frame against <see cref="reframeKey"/>
-        /// in <see cref="Update"/> — so the "reenquadrar" UI button and the
-        /// key shortcut can both call it on demand, mid-simulation, without
-        /// reloading (particles can drift well outside the initial framing
-        /// as a simulation runs).
-        /// </summary>
         public void FrameCamera()
         {
             Camera cam = Camera.main;
@@ -365,9 +274,6 @@ namespace ParticleSim.UI
                 if (pos.z < min.z) min.z = pos.z; else if (pos.z > max.z) max.z = pos.z;
             }
 
-            // Padded by half a cell on each side (cells span integer coords,
-            // a particle's cube is centered on its cell), same convention
-            // GridBoundsRenderer already uses.
             Vector3 worldMin = new Vector3(min.x - 0.5f, min.y - 0.5f, min.z - 0.5f) * cellSize;
             Vector3 worldMax = new Vector3(max.x + 0.5f, max.y + 0.5f, max.z + 0.5f) * cellSize;
             Vector3 center = (worldMin + worldMax) * 0.5f;
@@ -387,19 +293,6 @@ namespace ParticleSim.UI
             }
         }
 
-        /// <summary>
-        /// Distance along the view axis at which a bounding sphere of the
-        /// given radius is fully contained by the camera's frustum, using
-        /// whichever of the vertical/horizontal field of view is narrower
-        /// (so it holds regardless of aspect ratio or which axis the scene
-        /// is longer along) — the standard "frame bounds" distance formula:
-        /// a sphere's angular radius as seen from the camera is
-        /// asin(radius / distance), so the sphere stays fully inside a
-        /// half-angle θ once distance ≥ radius / sin(θ). A pure function of
-        /// geometry (no Camera/Transform dependency), verified independently
-        /// against a sampled-frustum containment check before this was wired
-        /// into <see cref="FrameCamera"/>.
-        /// </summary>
         internal static float FramingDistance(float radius, float verticalFovDegrees, float aspect, float padding)
         {
             float verticalHalfAngle = verticalFovDegrees * 0.5f * Mathf.Deg2Rad;

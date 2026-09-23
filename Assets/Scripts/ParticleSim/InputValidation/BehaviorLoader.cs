@@ -7,25 +7,6 @@ using UnityEngine;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Loads a behavior JSON file into a map of particleType -> TypeBehavior.
-    /// The file is only converted after <see cref="BehaviorValidator"/> accepts
-    /// it — any lexical, syntactic or semantic error blocks the load
-    /// (RF04/RNF08) and is reported through the returned
-    /// <see cref="ValidationResult"/>. That includes the rule that movement is
-    /// not allowed inside onInit, which lives with the rest of the semantic
-    /// checks rather than being re-implemented here.
-    ///
-    /// Once validation passes, every block's condition/actions strings are
-    /// parsed a second time here to build the AST
-    /// (<see cref="ActionBlock.ParsedCondition"/>/<see cref="ActionBlock.ParsedActions"/>)
-    /// that SimulationEngine evaluates — this second pass is guaranteed to
-    /// succeed (validation already proved every string well-formed), so
-    /// parsing happens exactly twice total per string, at load time, and
-    /// never again per cycle per particle. Named-condition references
-    /// ("definitions") are resolved — spliced into the real tree — as part of
-    /// this same pass, so SimulationEngine never has to know "definitions" exists.
-    /// </summary>
     public static class BehaviorLoader
     {
         public static Dictionary<string, TypeBehavior> LoadFromFile(string absolutePath, out ValidationResult validation)
@@ -77,12 +58,6 @@ namespace ParticleSim.InputValidation
             }
         }
 
-        /// <summary>
-        /// Re-parses "definitions" (guaranteed well-formed and acyclic — both
-        /// already proven by BehaviorValidator) and fully resolves every
-        /// definition's own tree, so later resolving a block's condition
-        /// against this dictionary never needs to recurse any further.
-        /// </summary>
         private static Dictionary<string, ConditionNode> BuildResolvedDefinitions(JObject root)
         {
             var rawDefinitions = new Dictionary<string, ConditionNode>();
@@ -109,12 +84,6 @@ namespace ParticleSim.InputValidation
             return resolved;
         }
 
-        /// <summary>
-        /// Converts an already-validated type object into a TypeBehavior. Event
-        /// keys are recognized through <see cref="Grammar.ParseEventKey"/> — the
-        /// same routine the validator uses — so the key shapes are defined in
-        /// exactly one place.
-        /// </summary>
         private static TypeBehavior ParseTypeBehavior(JObject typeObject, HashSet<string> definitionNames, Dictionary<string, ConditionNode> resolvedDefinitions)
         {
             var behavior = new TypeBehavior();
@@ -147,14 +116,6 @@ namespace ParticleSim.InputValidation
             return behavior;
         }
 
-        /// <summary>
-        /// Populates ParsedCondition/ParsedActions on every block, splicing
-        /// any named-condition reference into its resolved tree along the
-        /// way. A discarded ValidationResult is passed to the
-        /// (already-proven-successful) parse calls only because the shared
-        /// parsing API always reports through one — this call path can't
-        /// actually fail post-validation.
-        /// </summary>
         private static void BuildAst(List<ActionBlock> blocks, bool isOnInit, HashSet<string> definitionNames, Dictionary<string, ConditionNode> resolvedDefinitions)
         {
             var discarded = new ValidationResult();

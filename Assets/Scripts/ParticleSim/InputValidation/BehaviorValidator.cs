@@ -6,18 +6,8 @@ using ParticleSim.Core;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Structural validation of the behavior file (RF04/RNF08), plus the entry
-    /// point into the lexical/syntactic/semantic validation of every condition
-    /// and action string it contains (see <see cref="ExpressionValidator"/>).
-    ///
-    /// Runs against the raw JSON tree so shape errors are reported with the
-    /// particle type, event and block that caused them, instead of surfacing
-    /// as a generic deserialization exception.
-    /// </summary>
     public static class BehaviorValidator
     {
-        /// <summary>The only fields a rule block may declare — the schema is deliberately minimal.</summary>
         private static readonly HashSet<string> AllowedBlockFields =
             new HashSet<string>(new[] { "condition", "actions" }, StringComparer.OrdinalIgnoreCase);
 
@@ -35,7 +25,7 @@ namespace ParticleSim.InputValidation
             foreach (JProperty typeProperty in root.Properties())
             {
                 if (string.Equals(typeProperty.Name, Grammar.DefinitionsKey, StringComparison.OrdinalIgnoreCase))
-                    continue; // handled above, not a particle type
+                    continue;
 
                 if (string.IsNullOrWhiteSpace(typeProperty.Name))
                 {
@@ -53,14 +43,6 @@ namespace ParticleSim.InputValidation
             }
         }
 
-        /// <summary>
-        /// Validates the optional "definitions" block: name -> condition
-        /// string, each validated the same way a block's "condition" is,
-        /// with the full set of names available so definitions can
-        /// cross-reference each other (or even themselves — caught below as
-        /// a cycle, not as an unknown-reference error). Returns every
-        /// successfully-parsed definition's tree, keyed by name.
-        /// </summary>
         private static Dictionary<string, ConditionNode> ValidateDefinitions(JObject root, ValidationResult result)
         {
             var definitions = new Dictionary<string, ConditionNode>(StringComparer.Ordinal);
@@ -89,7 +71,7 @@ namespace ParticleSim.InputValidation
 
             foreach (JProperty property in definitionsObject.Properties())
             {
-                if (string.IsNullOrWhiteSpace(property.Name)) continue; // already reported above
+                if (string.IsNullOrWhiteSpace(property.Name)) continue;
 
                 string where = $"Comportamento: '{Grammar.DefinitionsKey}', condição '{property.Name}'";
 
@@ -174,11 +156,6 @@ namespace ParticleSim.InputValidation
             }
         }
 
-        /// <summary>
-        /// Rejects any field other than condition/actions, which is what turns
-        /// a silent typo ("conditon") into a load error instead of a block that
-        /// quietly always runs.
-        /// </summary>
         private static void ValidateBlockFields(JObject block, string where, ValidationResult result)
         {
             foreach (JProperty field in block.Properties())

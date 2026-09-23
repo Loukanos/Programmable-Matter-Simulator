@@ -5,16 +5,6 @@ using ParticleSim.Core;
 
 namespace ParticleSim.InputValidation
 {
-    /// <summary>
-    /// Lexical analysis phase (RF04/RNF08): turns one condition or action
-    /// string into tokens, rejecting characters and malformed literals that
-    /// cannot belong to the declarative language at all.
-    ///
-    /// Direction constants are lexed as their own token kind because the
-    /// language accepts them bare (X+) as well as quoted ('X+'); the same
-    /// applies to relational operators (&gt;= and '&gt;=' are both valid), which
-    /// is why the parser accepts either token kind in those argument slots.
-    /// </summary>
     public static class ExpressionLexer
     {
         public static bool TryTokenize(string input, out List<Token> tokens, out string error)
@@ -116,11 +106,6 @@ namespace ParticleSim.InputValidation
         private static Token Make(TokenKind kind, string text, int position) =>
             new Token { Kind = kind, Text = text, Value = text, Position = position };
 
-        /// <summary>
-        /// A bare direction constant: an axis letter glued to a sign (X+, Y-, ...)
-        /// and not followed by more identifier characters, so "X+" reads as a
-        /// direction while "X" in "checkState(X, ...)" stays an identifier.
-        /// </summary>
         private static bool TryReadDirection(string input, int index, out Token token)
         {
             token = null;
@@ -152,8 +137,6 @@ namespace ParticleSim.InputValidation
             char c = input[index];
             if (char.IsDigit(c) || c == '.') return true;
 
-            // A leading + or - belongs to the number (setState's relative
-            // increment syntax) when a digit or decimal point follows it.
             if (c != '+' && c != '-') return false;
             if (index + 1 >= input.Length) return false;
             return char.IsDigit(input[index + 1]) || input[index + 1] == '.';
