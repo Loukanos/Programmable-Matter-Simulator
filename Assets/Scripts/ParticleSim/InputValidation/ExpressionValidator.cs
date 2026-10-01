@@ -237,6 +237,9 @@ namespace ParticleSim.InputValidation
                 Token token = Current;
                 if (token == null) { Fail("fim inesperado dos argumentos"); return null; }
 
+                if (token.Kind == TokenKind.Sign)
+                    return ParseSignedCall(token);
+
                 bool isNestedCall = token.Kind == TokenKind.Identifier && NextIsLParen();
                 if (!isNestedCall)
                 {
@@ -256,6 +259,20 @@ namespace ParticleSim.InputValidation
                 if (arguments == null) return null;
                 if (!ValidateValueArguments(signature, arguments)) return null;
                 return new ValueCallNode { FunctionName = signature.Name, Arguments = arguments.ToArray() };
+            }
+
+            private ValueNode ParseSignedCall(Token sign)
+            {
+                Advance();
+                if (Current == null || Current.Kind != TokenKind.Identifier || !NextIsLParen())
+                {
+                    Fail($"o sinal '{sign.Text}' só pode preceder uma função de leitura, como {sign.Text}state('x')");
+                    return null;
+                }
+
+                ValueNode operand = ParseValueArgument();
+                if (operand == null) return null;
+                return new SignedCallNode { Negative = sign.Text == "-", Call = (ValueCallNode)operand };
             }
 
             private List<ValueNode> ParseArgumentList(FunctionSignature signature)
@@ -327,6 +344,9 @@ namespace ParticleSim.InputValidation
             {
                 string where = $"argumento {index + 1} de '{signature.Name}'";
 
+                if (node is SignedCallNode signed)
+                    return ValidateSignedCall(signature, index, signed, where);
+
                 if (node is ValueCallNode call)
                 {
                     if (kind == ArgumentKind.Direction)
@@ -391,6 +411,27 @@ namespace ParticleSim.InputValidation
                             return true;
                         Fail($"{where} deve ser um literal numérico, booleano ou de texto, mas é '{token.Text}'");
                         return false;
+                }
+
+                return true;
+            }
+
+            private bool ValidateSignedCall(FunctionSignature signature, int index, SignedCallNode signed, string where)
+            {
+                string expression = $"{(signed.Negative ? "-" : "+")}{signed.Call.FunctionName}(...)";
+
+                bool isSetStateValue = index == 1
+                    && string.Equals(signature.Name, LanguageVocabulary.SetState, StringComparison.OrdinalIgnoreCase);
+                if (!isSetStateValue)
+                {
+                    Fail($"{where} não aceita '{expression}': o sinal antes de uma função só é permitido no valor do setState, como operação relativa");
+                    return false;
+                }
+
+                if (!Grammar.CanProduceNumber(signed.Call.FunctionName))
+                {
+                    Fail($"'{expression}' não é uma operação relativa válida: '{signed.Call.FunctionName}' não produz um número (use {Grammar.DescribeNumericValueFunctions()})");
+                    return false;
                 }
 
                 return true;

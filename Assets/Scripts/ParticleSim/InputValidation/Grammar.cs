@@ -83,6 +83,9 @@ namespace ParticleSim.InputValidation
 
         private static readonly Dictionary<string, FunctionSignature> Functions = BuildFunctions();
 
+        private static readonly string[] NumericValueFunctions =
+            { LanguageVocabulary.State, LanguageVocabulary.MessageValue, LanguageVocabulary.MyId, LanguageVocabulary.CountNeighbors };
+
         private static Dictionary<string, FunctionSignature> BuildFunctions()
         {
             var functions = new Dictionary<string, FunctionSignature>(StringComparer.OrdinalIgnoreCase);
@@ -147,6 +150,11 @@ namespace ParticleSim.InputValidation
             names.Sort(StringComparer.Ordinal);
             return string.Join(", ", names);
         }
+
+        public static bool CanProduceNumber(string functionName) =>
+            Array.Exists(NumericValueFunctions, name => string.Equals(name, functionName, StringComparison.OrdinalIgnoreCase));
+
+        public static string DescribeNumericValueFunctions() => string.Join(", ", NumericValueFunctions);
 
         public static EventKey ParseEventKey(string rawKey)
         {

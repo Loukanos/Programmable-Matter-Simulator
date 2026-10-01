@@ -96,6 +96,13 @@ namespace ParticleSim.InputValidation
                     return false;
                 }
 
+                if (c == '+' || c == '-')
+                {
+                    tokens.Add(Make(TokenKind.Sign, c.ToString(), i));
+                    i++;
+                    continue;
+                }
+
                 error = $"caractere inesperado '{c}' na posição {i}";
                 return false;
             }

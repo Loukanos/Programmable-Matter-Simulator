@@ -12,4 +12,10 @@ namespace ParticleSim.Core
         public string FunctionName;
         public ValueNode[] Arguments = System.Array.Empty<ValueNode>();
     }
+
+    public class SignedCallNode : ValueNode
+    {
+        public bool Negative;
+        public ValueCallNode Call;
+    }
 }

@@ -10,6 +10,7 @@ namespace ParticleSim.Core
         LParen,
         RParen,
         Comma,
+        Sign,
     }
 
     public class Token

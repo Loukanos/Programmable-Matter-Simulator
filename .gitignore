@@ -129,3 +129,6 @@ InitTestScene*.unity*
 /[Aa]ssets/_Recovery.meta
 
 /CLAUDE.md
+
+# Local scenario/behavior files used for characterization; not part of the project
+/TestData/

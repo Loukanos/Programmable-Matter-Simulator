@@ -226,6 +226,9 @@ namespace ParticleSim.SimulationEngine
             string key = ((LiteralValueNode)args[0]).Token.Value;
             ValueNode valueNode = args[1];
 
+            if (valueNode is SignedCallNode signed)
+                return ApplyComputedIncrement(particle, key, signed, ctx);
+
             if (valueNode is LiteralValueNode literal
                 && literal.Token.Kind == TokenKind.Number
                 && literal.Token.Text.Length > 0
@@ -237,6 +240,20 @@ namespace ParticleSim.SimulationEngine
 
             particle.SetInternalState(key, ValueResolver.Resolve(valueNode, ctx));
             return true;
+        }
+
+        private static bool ApplyComputedIncrement(Particle particle, string key, SignedCallNode signed, EvaluationContext ctx)
+        {
+            object operand = ValueResolver.Resolve(signed.Call, ctx);
+            if (!ConditionEvaluator.IsNumeric(operand))
+            {
+                string sign = signed.Negative ? "-" : "+";
+                Debug.LogWarning($"[SimulationEngine] setState increment/decrement ignored: {sign}{signed.Call.FunctionName}() did not produce a number for '{key}' ({operand ?? "null"}).");
+                return false;
+            }
+
+            double magnitude = Convert.ToDouble(operand, CultureInfo.InvariantCulture);
+            return ApplyStateIncrement(particle, key, signed.Negative ? -magnitude : magnitude);
         }
 
         private static bool ApplyStateIncrement(Particle particle, string key, double delta)

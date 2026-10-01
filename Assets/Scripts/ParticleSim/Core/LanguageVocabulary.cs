@@ -58,8 +58,10 @@ namespace ParticleSim.Core
         {
             if (node is ValueCallNode call)
                 return call.FunctionName == State || call.FunctionName == Opposite;
+            if (node is not LiteralValueNode literal)
+                return false;
 
-            Token token = ((LiteralValueNode)node).Token;
+            Token token = literal.Token;
             return token.Kind == TokenKind.Direction
                 || (token.Kind == TokenKind.QuotedString && IsDirection(token.Value));
         }
