@@ -51,6 +51,8 @@ namespace ParticleSim.UI
         private float _timer;
 
         public bool HasData { get; private set; }
+        public string LoadedScenarioFile { get; private set; }
+        public string LoadedBehaviorFile { get; private set; }
         public string LastScenarioLoadError { get; private set; }
         public string LastBehaviorLoadError { get; private set; }
         public int ParticleCount => _particleManager.Particles.Count;
@@ -128,6 +130,8 @@ namespace ParticleSim.UI
 
             LastScenarioLoadError = null;
             LastBehaviorLoadError = null;
+            LoadedScenarioFile = Path.GetFileName(scenarioPath);
+            LoadedBehaviorFile = Path.GetFileName(behaviorPath);
 
             _particleManager.BuildFromScenario(loaded);
             _engine.SetBehaviors(loaded.Behaviors);
@@ -256,6 +260,9 @@ namespace ParticleSim.UI
             _timer = 0f;
             _engine.ExecuteOnInit();
         }
+
+        public MetricsCalculator.IndicatorSnapshot CaptureIndicators() =>
+            _metrics.Capture(System.DateTime.Now, LoadedScenarioFile, LoadedBehaviorFile, ParticleCount);
 
         public void FrameCamera()
         {

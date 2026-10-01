@@ -429,7 +429,7 @@ namespace ParticleSim.SimulationEngine
             }
             if (IdleCyclesLimit > 0 && _idleCycles >= IdleCyclesLimit)
             {
-                Finish($"sem movimento por {_idleCycles} ciclo(s)");
+                Finish($"sem atividade por {_idleCycles} ciclo(s)");
             }
         }
 

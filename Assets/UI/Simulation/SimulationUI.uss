@@ -554,6 +554,28 @@ Button {
     margin-bottom: 2.5px;
 }
 
+.indicators-footer {
+    padding: 8px 12px 10px 12px;
+    border-top-width: 1px;
+    border-top-color: rgb(74, 80, 88);
+}
+
+.export-btn {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    font-size: 11px;
+    -unity-text-align: middle-center;
+}
+
+.export-btn:disabled {
+    opacity: 0.4;
+}
+
+.export-btn:disabled:hover {
+    border-color: rgb(74, 80, 88);
+    color: rgb(168, 174, 181);
+}
+
 .icon-fullscreen {
     width: 22px;
     height: 22px;

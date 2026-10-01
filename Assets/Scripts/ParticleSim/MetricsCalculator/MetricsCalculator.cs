@@ -1,3 +1,5 @@
+using System;
+
 namespace ParticleSim.MetricsCalculator
 {
     public class MetricsCalculator
@@ -11,6 +13,7 @@ namespace ParticleSim.MetricsCalculator
         public int TotalMessagesSent { get; private set; }
         public int TotalMessagesDelivered { get; private set; }
         public float FrameRate { get; private set; }
+        public string FinishReason { get; private set; }
 
         private double _totalStepTimeSeconds;
 
@@ -35,7 +38,30 @@ namespace ParticleSim.MetricsCalculator
             _engine.OnMessageSent += _ => TotalMessagesSent++;
             _engine.OnMessageSendFailed += _ => TotalMessagesSent++;
             _engine.OnMessageDelivered += _ => TotalMessagesDelivered++;
+            _engine.OnSimulationFinished += reason => FinishReason = reason;
         }
+
+        public IndicatorSnapshot Capture(DateTime timestamp, string scenarioFile, string behaviorFile, int particleCount) => new IndicatorSnapshot
+        {
+            Timestamp = timestamp,
+            ScenarioFile = scenarioFile,
+            BehaviorFile = behaviorFile,
+            State = _engine.IsFinished ? SimulationRunState.Finished
+                : _engine.IsRunning ? SimulationRunState.Running
+                : SimulationRunState.Paused,
+            FinishReason = FinishReason,
+            ParticleCount = particleCount,
+            Cycles = _engine.CurrentCycle,
+            LastMovementCycle = LastMovementCycle,
+            Movements = TotalMovements,
+            Collisions = TotalCollisions,
+            InvalidMovements = TotalInvalidMovements,
+            MessagesSent = TotalMessagesSent,
+            MessagesDelivered = TotalMessagesDelivered,
+            SimulationTimeSeconds = SimulationTime,
+            AverageStepTimeMs = AverageStepTimeMs,
+            FrameRate = FrameRate,
+        };
 
         public void Tick(float deltaTime) => SimulationTime += deltaTime;
 
@@ -67,6 +93,7 @@ namespace ParticleSim.MetricsCalculator
             FrameRate = 0f;
             _fpsTimer = 0f;
             _frameCount = 0;
+            FinishReason = null;
         }
     }
 }

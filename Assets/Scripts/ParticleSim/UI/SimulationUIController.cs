@@ -49,6 +49,7 @@ namespace ParticleSim.UI
         private Button _scenarioXButton;
         private Button _behaviorXButton;
         private Button _loadButton;
+        private Button _exportIndicatorsButton;
         private Button _confirmQuitButton;
         private Button _cancelQuitButton;
 
@@ -137,6 +138,7 @@ namespace ParticleSim.UI
             RefreshBehaviorRow();
 
             InitializeParameterControls();
+            RefreshExportButton();
         }
 
         private void Start()
@@ -168,6 +170,7 @@ namespace ParticleSim.UI
             _scenarioXButton.clicked -= OnClearScenario;
             _behaviorXButton.clicked -= OnClearBehavior;
             _loadButton.clicked -= OnLoad;
+            _exportIndicatorsButton.clicked -= OnExportIndicators;
 
             _stepIntervalSlider.UnregisterValueChangedCallback(OnStepIntervalChanged);
             _cubeFillSlider.UnregisterValueChangedCallback(OnCubeFillChanged);
@@ -202,6 +205,7 @@ namespace ParticleSim.UI
             _scenarioXButton = Find<Button>(root, "scenarioXButton");
             _behaviorXButton = Find<Button>(root, "behaviorXButton");
             _loadButton = Find<Button>(root, "loadButton");
+            _exportIndicatorsButton = Find<Button>(root, "exportIndicatorsButton");
             _confirmQuitButton = Find<Button>(root, "confirmQuitButton");
             _cancelQuitButton = Find<Button>(root, "cancelQuitButton");
 
@@ -275,6 +279,7 @@ namespace ParticleSim.UI
             _scenarioXButton.clicked += OnClearScenario;
             _behaviorXButton.clicked += OnClearBehavior;
             _loadButton.clicked += OnLoad;
+            _exportIndicatorsButton.clicked += OnExportIndicators;
 
             _stepIntervalSlider.RegisterValueChangedCallback(OnStepIntervalChanged);
             _cubeFillSlider.RegisterValueChangedCallback(OnCubeFillChanged);
@@ -500,6 +505,27 @@ namespace ParticleSim.UI
             _stepTimeLabel.text = $"Tempo por ciclo: {simulation.AverageStepTimeMs:F2}ms";
             _messagesSentLabel.text = $"Mensagens enviadas: {simulation.TotalMessagesSent}";
             _messagesDeliveredLabel.text = $"Mensagens recebidas: {simulation.TotalMessagesDelivered}";
+            RefreshExportButton();
+        }
+
+        private void RefreshExportButton()
+        {
+            if (_exportIndicatorsButton.enabledSelf != simulation.HasData)
+                _exportIndicatorsButton.SetEnabled(simulation.HasData);
+        }
+
+        private void OnExportIndicators()
+        {
+            // Snapshot first: the row must describe the moment of the click, not of the file choice.
+            MetricsCalculator.IndicatorSnapshot snapshot = simulation.CaptureIndicators();
+            string suggestedName = MetricsCalculator.IndicatorsCsv.SuggestedFileName(snapshot.ScenarioFile, snapshot.BehaviorFile, snapshot.Timestamp);
+            string path = StandaloneFileDialog.SaveFile("Baixar indicadores (CSV)", suggestedName,
+                "Planilha CSV\0*.csv\0Todos os arquivos\0*.*\0\0", "csv");
+            if (path == null) return;
+
+            SetStatus(MetricsCalculator.IndicatorsCsv.TryAppend(path, snapshot, out string error)
+                ? $"Indicadores gravados em {path}"
+                : $"Não foi possível gravar os indicadores: {error}");
         }
 
         private void OnRun()
