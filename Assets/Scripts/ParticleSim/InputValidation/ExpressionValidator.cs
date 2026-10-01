@@ -8,7 +8,11 @@ namespace ParticleSim.InputValidation
 {
     public static class ExpressionValidator
     {
-        public static bool ValidateCondition(string expression, string context, ValidationResult result, ISet<string> definitionNames, out ConditionNode node)
+        public const string MessageDirectionOutsideOnMessage =
+            "messageDirection() só pode ser usada em blocos onMessage, onde existe uma mensagem recebida";
+
+        public static bool ValidateCondition(string expression, string context, ValidationResult result, ISet<string> definitionNames,
+            bool allowMessageDirection, out ConditionNode node)
         {
             node = null;
             if (string.IsNullOrWhiteSpace(expression)) return true;
@@ -26,10 +30,17 @@ namespace ParticleSim.InputValidation
                 result.AddError($"{context}: condição \"{expression}\" — {parser.Error}.");
                 return false;
             }
+
+            if (!allowMessageDirection && FunctionUsage.Calls(node, LanguageVocabulary.MessageDirection))
+            {
+                result.AddError($"{context}: condição \"{expression}\" — {MessageDirectionOutsideOnMessage}.");
+                node = null;
+                return false;
+            }
             return true;
         }
 
-        public static bool ValidateAction(string action, string context, bool isOnInit, ValidationResult result, out ActionNode node)
+        public static bool ValidateAction(string action, string context, EventKeyKind eventKind, ValidationResult result, out ActionNode node)
         {
             node = null;
 
@@ -46,10 +57,17 @@ namespace ParticleSim.InputValidation
             }
 
             var parser = new Parser(tokens, null);
-            node = parser.ParseActionRoot(isOnInit);
+            node = parser.ParseActionRoot(isOnInit: eventKind == EventKeyKind.OnInit);
             if (node == null)
             {
                 result.AddError($"{context}: ação \"{action}\" — {parser.Error}.");
+                return false;
+            }
+
+            if (eventKind != EventKeyKind.OnMessage && FunctionUsage.Calls(node, LanguageVocabulary.MessageDirection))
+            {
+                result.AddError($"{context}: ação \"{action}\" — {MessageDirectionOutsideOnMessage}.");
+                node = null;
                 return false;
             }
             return true;
@@ -351,7 +369,7 @@ namespace ParticleSim.InputValidation
                 {
                     if (kind == ArgumentKind.Direction)
                     {
-                        if (call.FunctionName == LanguageVocabulary.State || call.FunctionName == LanguageVocabulary.Opposite)
+                        if (LanguageVocabulary.ProducesDirection(call.FunctionName))
                             return true;
                         Fail($"{where} espera uma direção — '{call.FunctionName}(...)' não produz uma direção");
                         return false;

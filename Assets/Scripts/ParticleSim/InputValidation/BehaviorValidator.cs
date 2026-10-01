@@ -21,6 +21,7 @@ namespace ParticleSim.InputValidation
 
             Dictionary<string, ConditionNode> definitions = ValidateDefinitions(root, result);
             var definitionNames = new HashSet<string>(definitions.Keys, StringComparer.Ordinal);
+            HashSet<string> onMessageOnlyDefinitions = DefinitionResolver.DefinitionsCalling(definitions, LanguageVocabulary.MessageDirection);
 
             foreach (JProperty typeProperty in root.Properties())
             {
@@ -39,7 +40,7 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                ValidateType(typeProperty.Name, (JObject)typeProperty.Value, definitionNames, result);
+                ValidateType(typeProperty.Name, (JObject)typeProperty.Value, definitionNames, onMessageOnlyDefinitions, result);
             }
         }
 
@@ -81,7 +82,7 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                if (ExpressionValidator.ValidateCondition(property.Value.Value<string>(), where, result, names, out ConditionNode node))
+                if (ExpressionValidator.ValidateCondition(property.Value.Value<string>(), where, result, names, allowMessageDirection: true, out ConditionNode node))
                     definitions[property.Name] = node;
             }
 
@@ -92,7 +93,8 @@ namespace ParticleSim.InputValidation
             return definitions;
         }
 
-        private static void ValidateType(string typeName, JObject typeObject, HashSet<string> definitionNames, ValidationResult result)
+        private static void ValidateType(string typeName, JObject typeObject, HashSet<string> definitionNames,
+            HashSet<string> onMessageOnlyDefinitions, ValidationResult result)
         {
             foreach (JProperty eventProperty in typeObject.Properties())
             {
@@ -120,11 +122,12 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                ValidateBlocks(eventProperty.Value, where, key.Kind == EventKeyKind.OnInit, definitionNames, result);
+                ValidateBlocks(eventProperty.Value, where, key.Kind, definitionNames, onMessageOnlyDefinitions, result);
             }
         }
 
-        private static void ValidateBlocks(JToken blocksToken, string where, bool isOnInit, HashSet<string> definitionNames, ValidationResult result)
+        private static void ValidateBlocks(JToken blocksToken, string where, EventKeyKind eventKind, HashSet<string> definitionNames,
+            HashSet<string> onMessageOnlyDefinitions, ValidationResult result)
         {
             if (blocksToken == null || blocksToken.Type == JTokenType.Null)
             {
@@ -151,8 +154,8 @@ namespace ParticleSim.InputValidation
 
                 var block = (JObject)blocks[i];
                 ValidateBlockFields(block, blockWhere, result);
-                ValidateCondition(block, blockWhere, definitionNames, result);
-                ValidateActions(block, blockWhere, isOnInit, result);
+                ValidateCondition(block, blockWhere, eventKind, definitionNames, onMessageOnlyDefinitions, result);
+                ValidateActions(block, blockWhere, eventKind, result);
             }
         }
 
@@ -163,7 +166,8 @@ namespace ParticleSim.InputValidation
                     result.AddError($"{where}: campo desconhecido '{field.Name}' (um bloco aceita apenas 'condition' e 'actions').");
         }
 
-        private static void ValidateCondition(JObject block, string where, HashSet<string> definitionNames, ValidationResult result)
+        private static void ValidateCondition(JObject block, string where, EventKeyKind eventKind, HashSet<string> definitionNames,
+            HashSet<string> onMessageOnlyDefinitions, ValidationResult result)
         {
             JToken token = block["condition"];
             if (token == null || token.Type == JTokenType.Null) return;
@@ -174,10 +178,17 @@ namespace ParticleSim.InputValidation
                 return;
             }
 
-            ExpressionValidator.ValidateCondition(token.Value<string>(), where, result, definitionNames, out _);
+            bool insideOnMessage = eventKind == EventKeyKind.OnMessage;
+            if (!ExpressionValidator.ValidateCondition(token.Value<string>(), where, result, definitionNames, insideOnMessage, out ConditionNode node)
+                || insideOnMessage)
+                return;
+
+            foreach (string name in new HashSet<string>(DefinitionResolver.FindReferences(node)))
+                if (onMessageOnlyDefinitions.Contains(name))
+                    result.AddError($"{where}: a condição usa '{name}', que depende de messageDirection() — {ExpressionValidator.MessageDirectionOutsideOnMessage}.");
         }
 
-        private static void ValidateActions(JObject block, string where, bool isOnInit, ValidationResult result)
+        private static void ValidateActions(JObject block, string where, EventKeyKind eventKind, ValidationResult result)
         {
             JToken token = block["actions"];
             if (token == null || token.Type == JTokenType.Null)
@@ -209,7 +220,7 @@ namespace ParticleSim.InputValidation
                     continue;
                 }
 
-                ExpressionValidator.ValidateAction(actions[i].Value<string>(), actionWhere, isOnInit, result, out _);
+                ExpressionValidator.ValidateAction(actions[i].Value<string>(), actionWhere, eventKind, result, out _);
             }
         }
     }

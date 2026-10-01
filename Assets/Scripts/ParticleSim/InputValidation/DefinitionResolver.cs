@@ -62,6 +62,32 @@ namespace ParticleSim.InputValidation
             }
         }
 
+        public static HashSet<string> DefinitionsCalling(Dictionary<string, ConditionNode> definitions, string functionName)
+        {
+            var callers = new HashSet<string>();
+            foreach (KeyValuePair<string, ConditionNode> definition in definitions)
+                if (FunctionUsage.Calls(definition.Value, functionName))
+                    callers.Add(definition.Key);
+
+            bool grew = true;
+            while (grew)
+            {
+                grew = false;
+                foreach (KeyValuePair<string, ConditionNode> definition in definitions)
+                {
+                    if (callers.Contains(definition.Key)) continue;
+                    foreach (string referenced in FindReferences(definition.Value))
+                    {
+                        if (!callers.Contains(referenced)) continue;
+                        callers.Add(definition.Key);
+                        grew = true;
+                        break;
+                    }
+                }
+            }
+            return callers;
+        }
+
         // Precondition: FindCycle found no cycle. A cyclic graph would recurse forever.
         public static ConditionNode Resolve(ConditionNode tree, Dictionary<string, ConditionNode> rawDefinitions, Dictionary<string, ConditionNode> resolvedCache)
         {

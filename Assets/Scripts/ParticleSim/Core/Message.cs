@@ -5,18 +5,15 @@ namespace ParticleSim.Core
         public Particle Sender { get; }
         public Particle Recipient { get; }
         public object Content { get; }
-
-        // Where the sender is, seen from the recipient: the opposite of the direction it was sent in.
-        public string Direction { get; }
-
+        public string OriginDirection { get; }
         public double? Payload { get; }
 
-        public Message(Particle sender, Particle recipient, object content, string direction, double? payload = null)
+        public Message(Particle sender, Particle recipient, object content, string originDirection, double? payload = null)
         {
             Sender = sender;
             Recipient = recipient;
             Content = content;
-            Direction = direction;
+            OriginDirection = originDirection;
             Payload = payload;
         }
     }

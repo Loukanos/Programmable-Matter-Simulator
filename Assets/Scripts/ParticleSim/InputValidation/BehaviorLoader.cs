@@ -73,7 +73,7 @@ namespace ParticleSim.InputValidation
                 foreach (JProperty property in definitionsObject.Properties())
                 {
                     if (string.IsNullOrWhiteSpace(property.Name)) continue;
-                    ExpressionValidator.ValidateCondition(property.Value.Value<string>(), "reparse", discarded, names, out ConditionNode node);
+                    ExpressionValidator.ValidateCondition(property.Value.Value<string>(), "reparse", discarded, names, allowMessageDirection: true, out ConditionNode node);
                     rawDefinitions[property.Name] = node;
                 }
             }
@@ -93,8 +93,7 @@ namespace ParticleSim.InputValidation
             {
                 EventKey key = Grammar.ParseEventKey(property.Name);
                 List<ActionBlock> blocks = property.Value.ToObject<List<ActionBlock>>() ?? new List<ActionBlock>();
-                bool isOnInit = key.Kind == EventKeyKind.OnInit;
-                BuildAst(blocks, isOnInit, definitionNames, resolvedDefinitions);
+                BuildAst(blocks, key.Kind, definitionNames, resolvedDefinitions);
 
                 switch (key.Kind)
                 {
@@ -116,7 +115,7 @@ namespace ParticleSim.InputValidation
             return behavior;
         }
 
-        private static void BuildAst(List<ActionBlock> blocks, bool isOnInit, HashSet<string> definitionNames, Dictionary<string, ConditionNode> resolvedDefinitions)
+        private static void BuildAst(List<ActionBlock> blocks, EventKeyKind eventKind, HashSet<string> definitionNames, Dictionary<string, ConditionNode> resolvedDefinitions)
         {
             var discarded = new ValidationResult();
 
@@ -124,13 +123,14 @@ namespace ParticleSim.InputValidation
             {
                 if (block == null) continue;
 
-                ExpressionValidator.ValidateCondition(block.condition, "reparse", discarded, definitionNames, out ConditionNode rawCondition);
+                ExpressionValidator.ValidateCondition(block.condition, "reparse", discarded, definitionNames,
+                    allowMessageDirection: eventKind == EventKeyKind.OnMessage, out ConditionNode rawCondition);
                 block.ParsedCondition = DefinitionResolver.Resolve(rawCondition, resolvedDefinitions, resolvedDefinitions);
 
                 block.ParsedActions = new List<ActionNode>();
                 foreach (string action in block.actions)
                 {
-                    ExpressionValidator.ValidateAction(action, "reparse", isOnInit, discarded, out ActionNode node);
+                    ExpressionValidator.ValidateAction(action, "reparse", eventKind, discarded, out ActionNode node);
                     block.ParsedActions.Add(node);
                 }
             }

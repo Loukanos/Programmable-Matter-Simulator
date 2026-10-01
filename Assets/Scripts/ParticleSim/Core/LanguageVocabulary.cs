@@ -57,7 +57,7 @@ namespace ParticleSim.Core
         public static bool IsDirectionShaped(ValueNode node)
         {
             if (node is ValueCallNode call)
-                return call.FunctionName == State || call.FunctionName == Opposite;
+                return ProducesDirection(call.FunctionName);
             if (node is not LiteralValueNode literal)
                 return false;
 
@@ -151,6 +151,10 @@ namespace ParticleSim.Core
         public const string CountNeighbors = "countNeighbors";
         public const string CanMove = "canMove";
         public const string MoveResult = "moveResult";
+        public const string MessageDirection = "messageDirection";
+
+        public static bool ProducesDirection(string functionName) =>
+            functionName == State || functionName == Opposite || functionName == MessageDirection;
 
         private static readonly Dictionary<MoveOutcome, string> MoveOutcomeTokens = new()
         {

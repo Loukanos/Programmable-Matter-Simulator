@@ -98,7 +98,7 @@ namespace ParticleSim.SimulationEngine
 
             string normalized = LanguageVocabulary.NormalizeDirection(direction);
             foreach (Message message in particle.Inbox)
-                if (string.Equals(message.Direction, normalized, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(message.OriginDirection, normalized, StringComparison.OrdinalIgnoreCase))
                     yield return message;
         }
 

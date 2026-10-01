@@ -47,6 +47,9 @@ namespace ParticleSim.SimulationEngine
             if (call.FunctionName == LanguageVocabulary.MessageValue)
                 return ctx.MatchedMessage?.Payload;
 
+            if (call.FunctionName == LanguageVocabulary.MessageDirection)
+                return ctx.CurrentMessage?.OriginDirection;
+
             if (call.FunctionName == LanguageVocabulary.MyId)
                 return (double)ctx.Particle.Id;
 

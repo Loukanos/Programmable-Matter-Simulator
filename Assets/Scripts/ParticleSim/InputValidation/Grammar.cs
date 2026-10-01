@@ -128,6 +128,8 @@ namespace ParticleSim.InputValidation
                 new[] { ArgumentKind.Direction });
             Add(LanguageVocabulary.MoveResult, FunctionRole.Value,
                 Array.Empty<ArgumentKind>());
+            Add(LanguageVocabulary.MessageDirection, FunctionRole.Value,
+                Array.Empty<ArgumentKind>());
 
             return functions;
         }
