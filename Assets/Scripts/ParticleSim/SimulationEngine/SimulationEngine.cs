@@ -282,13 +282,18 @@ namespace ParticleSim.SimulationEngine
             ValueNode payloadNode = directed
                 ? (args.Length >= 3 ? args[2] : null)
                 : (args.Length >= 2 ? args[1] : null);
-            double? payload = ResolvePayload(payloadNode, ctx);
+            double? payload = ResolvePayload(payloadNode, ctx, out object resolvedPayload);
 
-            if (!directed)
-                return SendMessage(particle, direction: null, wasDirected: false, content, payload);
+            bool sent = directed
+                ? SendMessage(particle, ValueResolver.ResolveDirection(args[0], ctx), wasDirected: true, content, payload)
+                : SendMessage(particle, direction: null, wasDirected: false, content, payload);
 
-            string direction = ValueResolver.ResolveDirection(args[0], ctx);
-            return SendMessage(particle, direction, wasDirected: true, content, payload);
+            if (sent && payloadNode != null && payload == null)
+            {
+                string source = payloadNode is ValueCallNode call ? $"{call.FunctionName}()" : "payload";
+                Debug.LogWarning($"[SimulationEngine] sendMessage payload dropped: {source} did not produce a number for tag '{content}' ({resolvedPayload ?? "null"}); the message was sent without a payload.");
+            }
+            return sent;
         }
 
         private static bool IsDirected(ValueNode[] args)
@@ -298,10 +303,11 @@ namespace ParticleSim.SimulationEngine
             return LanguageVocabulary.IsDirectionShaped(args[0]);
         }
 
-        private static double? ResolvePayload(ValueNode payloadNode, EvaluationContext ctx)
+        private static double? ResolvePayload(ValueNode payloadNode, EvaluationContext ctx, out object resolved)
         {
+            resolved = null;
             if (payloadNode == null) return null;
-            object resolved = ValueResolver.Resolve(payloadNode, ctx);
+            resolved = ValueResolver.Resolve(payloadNode, ctx);
             return ConditionEvaluator.IsNumeric(resolved)
                 ? Convert.ToDouble(resolved, CultureInfo.InvariantCulture)
                 : (double?)null;
