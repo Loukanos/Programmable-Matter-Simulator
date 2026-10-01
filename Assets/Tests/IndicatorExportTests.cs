@@ -61,6 +61,22 @@ namespace Tests
         }
 
         [Test]
+        public void Capture_CarriesTheAverageFrameRate_InTheLastColumn()
+        {
+            TestSimulation sim = TestSimulation.Load(
+                Json.Scenario(3, (1, "M", 1, 1, 1)),
+                Json.Of("{ `M`: { `onStep`: [ { `actions`: [ `wait` ] } ] } }"));
+
+            Assert.That(Columns(Capture(sim))[16], Is.EqualTo(""));
+
+            for (int frame = 0; frame < 6; frame++)
+                sim.Metrics.Tick(0.25f);
+
+            Assert.That(Columns(Capture(sim))[13], Is.EqualTo("1,500"));
+            Assert.That(Columns(Capture(sim))[16], Is.EqualTo("4,0"));
+        }
+
+        [Test]
         public void FailedWrite_DoesNotAffectTheSimulation()
         {
             TestSimulation sim = TestSimulation.Load(

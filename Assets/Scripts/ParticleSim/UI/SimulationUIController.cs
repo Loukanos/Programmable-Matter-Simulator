@@ -92,6 +92,7 @@ namespace ParticleSim.UI
         private Label _collisionsLabel;
         private Label _invalidMovementsLabel;
         private Label _fpsLabel;
+        private Label _averageFpsLabel;
         private Label _timeLabel;
         private Label _cyclesLabel;
         private Label _lastMovementCycleLabel;
@@ -241,6 +242,7 @@ namespace ParticleSim.UI
             _collisionsLabel = Find<Label>(root, "collisionsLabel");
             _invalidMovementsLabel = Find<Label>(root, "invalidMovementsLabel");
             _fpsLabel = Find<Label>(root, "fpsLabel");
+            _averageFpsLabel = Find<Label>(root, "averageFpsLabel");
             _timeLabel = Find<Label>(root, "timeLabel");
             _cyclesLabel = Find<Label>(root, "cyclesLabel");
             _lastMovementCycleLabel = Find<Label>(root, "lastMovementCycleLabel");
@@ -499,6 +501,7 @@ namespace ParticleSim.UI
             _collisionsLabel.text = $"Colisões: {simulation.TotalCollisions}";
             _invalidMovementsLabel.text = $"Movimentos inválidos: {simulation.TotalInvalidMovements}";
             _fpsLabel.text = $"FPS: {Mathf.RoundToInt(simulation.FrameRate)}";
+            _averageFpsLabel.text = $"FPS médio: {simulation.AverageFrameRate?.ToString("F1") ?? "—"}";
             _timeLabel.text = $"Tempo decorrido: {simulation.SimulationTime:F1}s";
             _cyclesLabel.text = $"Ciclos: {simulation.CycleCount}";
             _lastMovementCycleLabel.text = $"Ciclo do último movimento: {simulation.LastMovementCycle?.ToString() ?? "—"}";

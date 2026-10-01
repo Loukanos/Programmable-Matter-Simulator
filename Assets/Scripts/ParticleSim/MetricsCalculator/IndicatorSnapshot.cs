@@ -22,5 +22,6 @@ namespace ParticleSim.MetricsCalculator
         public double SimulationTimeSeconds;
         public double AverageStepTimeMs;
         public double FrameRate;
+        public double? AverageFrameRate;
     }
 }

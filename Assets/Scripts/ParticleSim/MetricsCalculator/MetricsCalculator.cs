@@ -5,7 +5,7 @@ namespace ParticleSim.MetricsCalculator
     public class MetricsCalculator
     {
         public int TotalMovements { get; private set; }
-        public float SimulationTime { get; private set; }
+        public double SimulationTime { get; private set; }
         public int CurrentCycle { get; private set; }
         public int? LastMovementCycle { get; private set; }
         public int TotalCollisions { get; private set; }
@@ -18,6 +18,10 @@ namespace ParticleSim.MetricsCalculator
         private double _totalStepTimeSeconds;
 
         public double AverageStepTimeMs => CurrentCycle > 0 ? _totalStepTimeSeconds / CurrentCycle * 1000.0 : 0.0;
+
+        private int _runningFrames;
+
+        public double? AverageFrameRate => SimulationTime > 0.0 ? _runningFrames / SimulationTime : (double?)null;
 
         private float _fpsTimer;
         private int _frameCount;
@@ -61,9 +65,15 @@ namespace ParticleSim.MetricsCalculator
             SimulationTimeSeconds = SimulationTime,
             AverageStepTimeMs = AverageStepTimeMs,
             FrameRate = FrameRate,
+            AverageFrameRate = AverageFrameRate,
         };
 
-        public void Tick(float deltaTime) => SimulationTime += deltaTime;
+        public void Tick(float deltaTime)
+        {
+            if (!_engine.IsRunning) return;
+            SimulationTime += deltaTime;
+            _runningFrames++;
+        }
 
         public void RecordStepDuration(double seconds) => _totalStepTimeSeconds += seconds;
 
@@ -82,7 +92,8 @@ namespace ParticleSim.MetricsCalculator
         public void Reset()
         {
             TotalMovements = 0;
-            SimulationTime = 0f;
+            SimulationTime = 0.0;
+            _runningFrames = 0;
             CurrentCycle = 0;
             LastMovementCycle = null;
             TotalCollisions = 0;

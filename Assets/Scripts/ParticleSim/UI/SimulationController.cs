@@ -57,7 +57,7 @@ namespace ParticleSim.UI
         public string LastBehaviorLoadError { get; private set; }
         public int ParticleCount => _particleManager.Particles.Count;
         public int TotalMovements => _metrics?.TotalMovements ?? 0;
-        public float SimulationTime => _metrics?.SimulationTime ?? 0f;
+        public double SimulationTime => _metrics?.SimulationTime ?? 0.0;
         public int CycleCount => _engine?.CurrentCycle ?? 0;
         public int? LastMovementCycle => _metrics?.LastMovementCycle;
         public bool IsRunning => _engine?.IsRunning ?? false;
@@ -66,6 +66,7 @@ namespace ParticleSim.UI
         public int TotalInvalidMovements => _metrics?.TotalInvalidMovements ?? 0;
         public double AverageStepTimeMs => _metrics?.AverageStepTimeMs ?? 0.0;
         public float FrameRate => _metrics?.FrameRate ?? 0f;
+        public double? AverageFrameRate => _metrics?.AverageFrameRate;
         public int TotalMessagesSent => _metrics?.TotalMessagesSent ?? 0;
         public int TotalMessagesDelivered => _metrics?.TotalMessagesDelivered ?? 0;
 
@@ -93,13 +94,13 @@ namespace ParticleSim.UI
         private void Update()
         {
             _metrics?.UpdateFrameRate(Time.unscaledDeltaTime);
+            _metrics?.Tick(Time.deltaTime);
 
             if (HasData && Keyboard.current != null && Keyboard.current[reframeKey].wasPressedThisFrame)
                 FrameCamera();
 
             if (!IsRunning) return;
 
-            _metrics.Tick(Time.deltaTime);
             _timer += Time.deltaTime;
             // if, not while: with a zero step interval a while loop would never exit.
             if (_timer >= stepInterval)

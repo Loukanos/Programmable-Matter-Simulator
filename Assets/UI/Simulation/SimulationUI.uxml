@@ -11,6 +11,7 @@
                 <ui:Label name="collisionsLabel" text="Colisões: 0" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="invalidMovementsLabel" text="Movimentos inválidos: 0" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="fpsLabel" text="FPS: 0" class="stats-label" picking-mode="Ignore" />
+                <ui:Label name="averageFpsLabel" text="FPS médio: —" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="timeLabel" text="Tempo decorrido: 0.0s" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="cyclesLabel" text="Ciclos: 0" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="lastMovementCycleLabel" text="Ciclo do último movimento: —" class="stats-label" picking-mode="Ignore" />

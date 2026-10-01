@@ -10,7 +10,7 @@ namespace ParticleSim.MetricsCalculator
         public const string Header =
             "Data e hora;Arquivo de cenário;Arquivo de comportamento;Estado;Motivo do encerramento;" +
             "Partículas;Ciclos;Ciclo do último movimento;Movimentos;Colisões;Movimentos inválidos;" +
-            "Mensagens enviadas;Mensagens recebidas;Tempo decorrido (s);Tempo médio por ciclo (ms);FPS";
+            "Mensagens enviadas;Mensagens recebidas;Tempo decorrido (s);Tempo médio por ciclo (ms);FPS;FPS médio";
 
         public const string ForeignFileError =
             "o arquivo escolhido já existe e não é uma tabela de indicadores deste simulador (o cabeçalho é diferente)";
@@ -43,7 +43,8 @@ namespace ParticleSim.MetricsCalculator
             Integer(snapshot.MessagesDelivered),
             snapshot.SimulationTimeSeconds.ToString("F3", DecimalComma),
             snapshot.AverageStepTimeMs.ToString("F3", DecimalComma),
-            snapshot.FrameRate.ToString("F1", DecimalComma));
+            snapshot.FrameRate.ToString("F1", DecimalComma),
+            snapshot.AverageFrameRate.HasValue ? snapshot.AverageFrameRate.Value.ToString("F1", DecimalComma) : "");
 
         public static bool TryAppend(string path, IndicatorSnapshot snapshot, out string error)
         {

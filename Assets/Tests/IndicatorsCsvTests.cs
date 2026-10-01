@@ -41,6 +41,7 @@ namespace Tests
             SimulationTimeSeconds = 1234.5678,
             AverageStepTimeMs = 0.1234,
             FrameRate = 59.94,
+            AverageFrameRate = 31.46,
         };
 
         private string[] Lines() => File.ReadAllLines(_path, Encoding.UTF8);
@@ -154,6 +155,41 @@ namespace Tests
             Assert.That(columns[13], Is.EqualTo("1234,568"));
             Assert.That(columns[14], Is.EqualTo("0,123"));
             Assert.That(columns[15], Is.EqualTo("59,9"));
+            Assert.That(columns[16], Is.EqualTo("31,5"));
+        }
+
+        [Test]
+        public void Header_HasTheAverageFrameRateRightAfterTheFrameRate()
+        {
+            string[] header = Columns(IndicatorsCsv.Header);
+
+            Assert.That(header[15], Is.EqualTo("FPS"));
+            Assert.That(header[16], Is.EqualTo("FPS médio"));
+            Assert.That(header.Length, Is.EqualTo(17));
+        }
+
+        [Test]
+        public void Row_LeavesTheAverageFrameRateEmpty_BeforeAnyRunningFrame()
+        {
+            IndicatorSnapshot snapshot = Snapshot();
+            snapshot.AverageFrameRate = null;
+
+            Assert.That(Columns(IndicatorsCsv.FormatRow(snapshot))[16], Is.EqualTo(""));
+        }
+
+        [Test]
+        public void FileWithTheHeaderFromBeforeTheAverageFrameRate_IsRefused()
+        {
+            const string previousHeader =
+                "Data e hora;Arquivo de cenário;Arquivo de comportamento;Estado;Motivo do encerramento;" +
+                "Partículas;Ciclos;Ciclo do último movimento;Movimentos;Colisões;Movimentos inválidos;" +
+                "Mensagens enviadas;Mensagens recebidas;Tempo decorrido (s);Tempo médio por ciclo (ms);FPS";
+            File.WriteAllText(_path, previousHeader + "\r\n", new UTF8Encoding(true));
+
+            Assert.That(IndicatorsCsv.TryAppend(_path, Snapshot(), out string error), Is.False);
+
+            Assert.That(error, Is.EqualTo(IndicatorsCsv.ForeignFileError));
+            Assert.That(Lines().Length, Is.EqualTo(1));
         }
 
         [TestCase(SimulationRunState.Running, "rodando", "")]
