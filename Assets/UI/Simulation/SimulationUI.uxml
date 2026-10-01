@@ -13,6 +13,7 @@
                 <ui:Label name="fpsLabel" text="FPS: 0" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="timeLabel" text="Tempo decorrido: 0.0s" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="cyclesLabel" text="Ciclos: 0" class="stats-label" picking-mode="Ignore" />
+                <ui:Label name="lastMovementCycleLabel" text="Ciclo do último movimento: —" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="stepTimeLabel" text="Tempo por ciclo: 0.0ms" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="messagesSentLabel" text="Mensagens enviadas: 0" class="stats-label" picking-mode="Ignore" />
                 <ui:Label name="messagesDeliveredLabel" text="Mensagens recebidas: 0" class="stats-label" picking-mode="Ignore" />

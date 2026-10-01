@@ -93,6 +93,7 @@ namespace ParticleSim.UI
         private Label _fpsLabel;
         private Label _timeLabel;
         private Label _cyclesLabel;
+        private Label _lastMovementCycleLabel;
         private Label _stepTimeLabel;
         private Label _messagesSentLabel;
         private Label _messagesDeliveredLabel;
@@ -238,6 +239,7 @@ namespace ParticleSim.UI
             _fpsLabel = Find<Label>(root, "fpsLabel");
             _timeLabel = Find<Label>(root, "timeLabel");
             _cyclesLabel = Find<Label>(root, "cyclesLabel");
+            _lastMovementCycleLabel = Find<Label>(root, "lastMovementCycleLabel");
             _stepTimeLabel = Find<Label>(root, "stepTimeLabel");
             _messagesSentLabel = Find<Label>(root, "messagesSentLabel");
             _messagesDeliveredLabel = Find<Label>(root, "messagesDeliveredLabel");
@@ -494,6 +496,7 @@ namespace ParticleSim.UI
             _fpsLabel.text = $"FPS: {Mathf.RoundToInt(simulation.FrameRate)}";
             _timeLabel.text = $"Tempo decorrido: {simulation.SimulationTime:F1}s";
             _cyclesLabel.text = $"Ciclos: {simulation.CycleCount}";
+            _lastMovementCycleLabel.text = $"Ciclo do último movimento: {simulation.LastMovementCycle?.ToString() ?? "—"}";
             _stepTimeLabel.text = $"Tempo por ciclo: {simulation.AverageStepTimeMs:F2}ms";
             _messagesSentLabel.text = $"Mensagens enviadas: {simulation.TotalMessagesSent}";
             _messagesDeliveredLabel.text = $"Mensagens recebidas: {simulation.TotalMessagesDelivered}";

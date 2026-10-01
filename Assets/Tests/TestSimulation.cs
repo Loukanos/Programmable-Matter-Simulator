@@ -12,11 +12,13 @@ namespace Tests
     {
         public ParticleSim.ParticleManager.ParticleManager Manager { get; } = new ParticleSim.ParticleManager.ParticleManager();
         public ParticleSim.SimulationEngine.SimulationEngine Engine { get; }
+        public ParticleSim.MetricsCalculator.MetricsCalculator Metrics { get; }
         public List<Message> Sent { get; } = new List<Message>();
 
         private TestSimulation()
         {
             Engine = new ParticleSim.SimulationEngine.SimulationEngine(Manager);
+            Metrics = new ParticleSim.MetricsCalculator.MetricsCalculator(Engine);
             Engine.OnMessageSent += Sent.Add;
         }
 

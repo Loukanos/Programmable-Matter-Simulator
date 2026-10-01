@@ -57,6 +57,7 @@ namespace ParticleSim.UI
         public int TotalMovements => _metrics?.TotalMovements ?? 0;
         public float SimulationTime => _metrics?.SimulationTime ?? 0f;
         public int CycleCount => _engine?.CurrentCycle ?? 0;
+        public int? LastMovementCycle => _metrics?.LastMovementCycle;
         public bool IsRunning => _engine?.IsRunning ?? false;
         public bool IsFinished => _engine?.IsFinished ?? false;
         public int TotalCollisions => _metrics?.TotalCollisions ?? 0;

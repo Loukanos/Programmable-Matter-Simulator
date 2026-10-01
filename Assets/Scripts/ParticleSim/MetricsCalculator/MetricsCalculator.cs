@@ -5,6 +5,7 @@ namespace ParticleSim.MetricsCalculator
         public int TotalMovements { get; private set; }
         public float SimulationTime { get; private set; }
         public int CurrentCycle { get; private set; }
+        public int? LastMovementCycle { get; private set; }
         public int TotalCollisions { get; private set; }
         public int TotalInvalidMovements { get; private set; }
         public int TotalMessagesSent { get; private set; }
@@ -24,7 +25,11 @@ namespace ParticleSim.MetricsCalculator
         {
             _engine = engine;
             _engine.OnParticleMoved += (_, __) => TotalMovements++;
-            _engine.OnCycleCompleted += (cycle, _) => CurrentCycle = cycle;
+            _engine.OnCycleCompleted += (cycle, anyMoved) =>
+            {
+                CurrentCycle = cycle;
+                if (anyMoved) LastMovementCycle = cycle;
+            };
             _engine.OnCollision += _ => TotalCollisions++;
             _engine.OnInvalidMovement += _ => TotalInvalidMovements++;
             _engine.OnMessageSent += _ => TotalMessagesSent++;
@@ -53,6 +58,7 @@ namespace ParticleSim.MetricsCalculator
             TotalMovements = 0;
             SimulationTime = 0f;
             CurrentCycle = 0;
+            LastMovementCycle = null;
             TotalCollisions = 0;
             TotalInvalidMovements = 0;
             TotalMessagesSent = 0;
