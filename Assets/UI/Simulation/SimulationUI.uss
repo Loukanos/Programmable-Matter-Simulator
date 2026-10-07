@@ -246,6 +246,8 @@ Button {
 
 .file-name {
     flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
     height: 100%;
     font-size: 13px;
     color: rgb(233, 236, 239);
