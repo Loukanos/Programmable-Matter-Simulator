@@ -172,6 +172,7 @@ namespace ParticleSim.UI
             _behaviorXButton.clicked -= OnClearBehavior;
             _loadButton.clicked -= OnLoad;
             _exportIndicatorsButton.clicked -= OnExportIndicators;
+            simulation.OnSimulationFinished -= ShowFinishReason;
 
             _stepIntervalSlider.UnregisterValueChangedCallback(OnStepIntervalChanged);
             _cubeFillSlider.UnregisterValueChangedCallback(OnCubeFillChanged);
@@ -282,6 +283,7 @@ namespace ParticleSim.UI
             _behaviorXButton.clicked += OnClearBehavior;
             _loadButton.clicked += OnLoad;
             _exportIndicatorsButton.clicked += OnExportIndicators;
+            simulation.OnSimulationFinished += ShowFinishReason;
 
             _stepIntervalSlider.RegisterValueChangedCallback(OnStepIntervalChanged);
             _cubeFillSlider.RegisterValueChangedCallback(OnCubeFillChanged);
@@ -539,8 +541,11 @@ namespace ParticleSim.UI
                 : "Rodando...");
         }
 
+        private void ShowFinishReason(string reason) => SetStatus($"Simulação encerrada: {reason}.");
+
         private void OnPause()
         {
+            if (simulation.IsFinished) return;
             simulation.Pause();
             SetStatus("Pausado.");
         }

@@ -70,6 +70,8 @@ namespace ParticleSim.UI
         public int TotalMessagesSent => _metrics?.TotalMessagesSent ?? 0;
         public int TotalMessagesDelivered => _metrics?.TotalMessagesDelivered ?? 0;
 
+        public event System.Action<string> OnSimulationFinished;
+
         private void Start()
         {
             _engine = new SimulationEngine.SimulationEngine(_particleManager);
@@ -85,6 +87,7 @@ namespace ParticleSim.UI
                 if (_views.TryGetValue(particle.Id, out ParticleView view))
                     view.SetColor(color);
             };
+            _engine.OnSimulationFinished += reason => OnSimulationFinished?.Invoke(reason);
 
             string scenarioPath = Path.Combine(Application.streamingAssetsPath, scenarioFileName);
             string behaviorPath = Path.Combine(Application.streamingAssetsPath, behaviorFileName);
