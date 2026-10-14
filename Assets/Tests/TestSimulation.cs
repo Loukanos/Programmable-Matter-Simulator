@@ -55,6 +55,13 @@ namespace Tests
             return behavior.ToMessage(50);
         }
 
+        public static string ScenarioErrors(string scenarioJson, string behaviorJson)
+        {
+            ValidatedSimulation loaded = Validate(scenarioJson, behaviorJson, out ValidationResult scenario, out _);
+            Assert.IsNull(loaded, "Expected the load to be rejected.");
+            return scenario.ToMessage(50);
+        }
+
         public void Step(int cycles = 1)
         {
             for (int i = 0; i < cycles; i++)

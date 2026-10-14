@@ -7,6 +7,9 @@ namespace ParticleSim.InputValidation
     {
         private static readonly string[] AxisNames = { "x", "y", "z" };
 
+        private static readonly string[] ScenarioFields = { "gridSize", "maxCycles", "idleCyclesLimit", "particles" };
+        private static readonly string[] ParticleFields = { "id", "type", "position" };
+
         public static void Validate(JObject root, ValidationResult result)
         {
             if (root == null)
@@ -15,18 +18,22 @@ namespace ParticleSim.InputValidation
                 return;
             }
 
-            int[] gridSize = ValidateGridSize(root, result);
+            MisspelledFields misspelled = MisspelledFields.In(root, ScenarioFields);
+            misspelled.Report("Cenário", result);
+
+            int[] gridSize = ValidateGridSize(root, misspelled.Has("gridSize"), result);
             ValidateCycleLimit(root, "maxCycles", result);
             ValidateCycleLimit(root, "idleCyclesLimit", result);
             ValidateParticles(root, gridSize, result);
         }
 
-        private static int[] ValidateGridSize(JObject root, ValidationResult result)
+        private static int[] ValidateGridSize(JObject root, bool misspelled, ValidationResult result)
         {
             JToken token = root["gridSize"];
             if (token == null || token.Type == JTokenType.Null)
             {
-                result.AddError("Cenário: 'gridSize' é obrigatório e deve ser uma lista [x, y, z].");
+                if (!misspelled)
+                    result.AddError("Cenário: 'gridSize' é obrigatório e deve ser uma lista [x, y, z].");
                 return null;
             }
 
@@ -102,23 +109,26 @@ namespace ParticleSim.InputValidation
                 }
 
                 var particle = (JObject)particles[i];
+                MisspelledFields misspelled = MisspelledFields.In(particle, ParticleFields);
 
-                if (TryValidateId(particle, where, seenIds, result, out int id))
+                if (TryValidateId(particle, where, seenIds, misspelled.Has("id"), result, out int id))
                     where = $"Cenário: partícula id {id}";
 
-                ValidateType(particle, where, result);
-                ValidatePosition(particle, where, gridSize, seenPositions, result);
+                misspelled.Report(where, result);
+                ValidateType(particle, where, misspelled.Has("type"), result);
+                ValidatePosition(particle, where, gridSize, seenPositions, misspelled.Has("position"), result);
             }
         }
 
-        private static bool TryValidateId(JObject particle, string where, HashSet<int> seenIds, ValidationResult result, out int id)
+        private static bool TryValidateId(JObject particle, string where, HashSet<int> seenIds, bool misspelled, ValidationResult result, out int id)
         {
             id = 0;
 
             JToken token = particle["id"];
             if (token == null || token.Type == JTokenType.Null)
             {
-                result.AddError($"{where}: 'id' é obrigatório.");
+                if (!misspelled)
+                    result.AddError($"{where}: 'id' é obrigatório.");
                 return false;
             }
 
@@ -135,12 +145,13 @@ namespace ParticleSim.InputValidation
             return true;
         }
 
-        private static void ValidateType(JObject particle, string where, ValidationResult result)
+        private static void ValidateType(JObject particle, string where, bool misspelled, ValidationResult result)
         {
             JToken token = particle["type"];
             if (token == null || token.Type == JTokenType.Null)
             {
-                result.AddError($"{where}: 'type' é obrigatório.");
+                if (!misspelled)
+                    result.AddError($"{where}: 'type' é obrigatório.");
                 return;
             }
 
@@ -149,12 +160,13 @@ namespace ParticleSim.InputValidation
         }
 
         private static void ValidatePosition(JObject particle, string where, int[] gridSize,
-            HashSet<string> seenPositions, ValidationResult result)
+            HashSet<string> seenPositions, bool misspelled, ValidationResult result)
         {
             JToken token = particle["position"];
             if (token == null || token.Type == JTokenType.Null)
             {
-                result.AddError($"{where}: 'position' é obrigatório e deve ser uma lista [x, y, z].");
+                if (!misspelled)
+                    result.AddError($"{where}: 'position' é obrigatório e deve ser uma lista [x, y, z].");
                 return;
             }
 

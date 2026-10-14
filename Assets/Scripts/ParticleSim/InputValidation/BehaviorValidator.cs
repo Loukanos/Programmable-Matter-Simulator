@@ -8,8 +8,10 @@ namespace ParticleSim.InputValidation
 {
     public static class BehaviorValidator
     {
+        private static readonly string[] BlockFields = { "condition", "actions" };
+
         private static readonly HashSet<string> AllowedBlockFields =
-            new HashSet<string>(new[] { "condition", "actions" }, StringComparer.OrdinalIgnoreCase);
+            new HashSet<string>(BlockFields, StringComparer.OrdinalIgnoreCase);
 
         public static void Validate(JObject root, ValidationResult result)
         {
@@ -48,7 +50,12 @@ namespace ParticleSim.InputValidation
         {
             var definitions = new Dictionary<string, ConditionNode>(StringComparer.Ordinal);
 
-            JToken token = root[Grammar.DefinitionsKey];
+            MisspelledFields misspelled = MisspelledFields.In(root, new[] { Grammar.DefinitionsKey });
+            misspelled.Report("Comportamento", result);
+
+            // A misspelled block is still read, so its names don't also show up as unknown functions.
+            JToken token = root[Grammar.DefinitionsKey]
+                ?? (misspelled.Has(Grammar.DefinitionsKey) ? root.GetValue(Grammar.DefinitionsKey, StringComparison.OrdinalIgnoreCase) : null);
             if (token == null || token.Type == JTokenType.Null) return definitions;
 
             if (token.Type != JTokenType.Object)
@@ -153,17 +160,22 @@ namespace ParticleSim.InputValidation
                 }
 
                 var block = (JObject)blocks[i];
-                ValidateBlockFields(block, blockWhere, result);
+                MisspelledFields misspelled = ValidateBlockFields(block, blockWhere, result);
                 ValidateCondition(block, blockWhere, eventKind, definitionNames, onMessageOnlyDefinitions, result);
-                ValidateActions(block, blockWhere, eventKind, result);
+                ValidateActions(block, blockWhere, eventKind, misspelled.Has("actions"), result);
             }
         }
 
-        private static void ValidateBlockFields(JObject block, string where, ValidationResult result)
+        private static MisspelledFields ValidateBlockFields(JObject block, string where, ValidationResult result)
         {
+            MisspelledFields misspelled = MisspelledFields.In(block, BlockFields);
+            misspelled.Report(where, result);
+
             foreach (JProperty field in block.Properties())
                 if (!AllowedBlockFields.Contains(field.Name))
                     result.AddError($"{where}: campo desconhecido '{field.Name}' (um bloco aceita apenas 'condition' e 'actions').");
+
+            return misspelled;
         }
 
         private static void ValidateCondition(JObject block, string where, EventKeyKind eventKind, HashSet<string> definitionNames,
@@ -188,12 +200,13 @@ namespace ParticleSim.InputValidation
                     result.AddError($"{where}: a condição usa '{name}', que depende de messageDirection() — {ExpressionValidator.MessageDirectionOutsideOnMessage}.");
         }
 
-        private static void ValidateActions(JObject block, string where, EventKeyKind eventKind, ValidationResult result)
+        private static void ValidateActions(JObject block, string where, EventKeyKind eventKind, bool misspelled, ValidationResult result)
         {
             JToken token = block["actions"];
             if (token == null || token.Type == JTokenType.Null)
             {
-                result.AddError($"{where}: 'actions' é obrigatório e deve ser uma lista de textos.");
+                if (!misspelled)
+                    result.AddError($"{where}: 'actions' é obrigatório e deve ser uma lista de textos.");
                 return;
             }
 
