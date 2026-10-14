@@ -1,0 +1,9 @@
+{
+  "gridSize": [8, 2, 1],
+  "maxCycles": 50,
+  "idleCyclesLimit": 3,
+  "particles": [
+    { "id": 1, "type": "Andarilho", "position": [0, 0, 0] },
+    { "id": 2, "type": "Marco", "position": [7, 1, 0] }
+  ]
+}

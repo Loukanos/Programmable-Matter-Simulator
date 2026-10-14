@@ -1,0 +1,18 @@
+{
+  "Inicio": {
+    "onInit": [
+      { "actions": ["setColor('#FFCC00')", "sendMessage('X+', 'aviso')"] }
+    ]
+  },
+  "Elo": {
+    "onInit": [
+      { "actions": ["setColor('#777777')"] }
+    ],
+    "onMessage(X-)": [
+      {
+        "condition": "checkMessage('aviso')",
+        "actions": ["setColor('#FFCC00')", "sendMessage('X+', 'aviso')"]
+      }
+    ]
+  }
+}

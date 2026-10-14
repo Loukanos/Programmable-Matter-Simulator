@@ -1,0 +1,22 @@
+{
+  "Andarilho": {
+    "onInit": [
+      { "actions": ["setColor('#3399FF')", "setState('parado', false)"] }
+    ],
+    "onStep": [
+      {
+        "condition": "canMove('X+')",
+        "actions": ["move('X+')"]
+      },
+      {
+        "condition": "Not canMove('X+') And checkState('parado', '==', false)",
+        "actions": ["setColor('#FF6600')", "setState('parado', true)"]
+      }
+    ]
+  },
+  "Marco": {
+    "onInit": [
+      { "actions": ["setColor('#777777')"] }
+    ]
+  }
+}

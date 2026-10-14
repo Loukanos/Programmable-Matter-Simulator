@@ -1,0 +1,39 @@
+{
+  "definitions": {
+    "fimDaFila": "Not hasNeighbor('X+')"
+  },
+  "Inicio": {
+    "onInit": [
+      {
+        "actions": [
+          "setColor('#FFCC00')",
+          "setState('posicao', 0)",
+          "sendMessage('X+', 'conta', 1)"
+        ]
+      }
+    ]
+  },
+  "Elo": {
+    "onInit": [
+      { "actions": ["setColor('#777777')"] }
+    ],
+    "onMessage(X-)": [
+      {
+        "condition": "checkMessage('conta')",
+        "actions": [
+          "setState('posicao', messageValue())",
+          "setState('proximo', messageValue())",
+          "setState('proximo', +1)"
+        ]
+      },
+      {
+        "condition": "checkMessage('conta') And Not fimDaFila",
+        "actions": ["setColor('#FFCC00')", "sendMessage('X+', 'conta', state('proximo'))"]
+      },
+      {
+        "condition": "checkMessage('conta') And fimDaFila",
+        "actions": ["setColor('#33CC66')"]
+      }
+    ]
+  }
+}
