@@ -76,7 +76,7 @@
                     <ui:Label text="Arquivo ativo" class="field-label" />
                     <ui:VisualElement class="file-row">
                         <ui:Label name="scenarioPathLabel" text="(padrão)" class="file-name" />
-                        <ui:Button name="scenarioXButton" text="✕" class="file-x" tooltip="Voltar ao arquivo padrão" />
+                        <ui:Button name="scenarioXButton" text="✕" class="file-x" tooltip="Remover arquivo" />
                     </ui:VisualElement>
                     <ui:Button name="scenarioButton" text="+ Carregar arquivo" class="load-btn" />
                     <ui:ScrollView name="scenarioErrorBox" class="err-box hidden" mode="Vertical">
@@ -89,7 +89,7 @@
                     <ui:Label text="Arquivo ativo" class="field-label" />
                     <ui:VisualElement class="file-row">
                         <ui:Label name="behaviorPathLabel" text="(padrão)" class="file-name" />
-                        <ui:Button name="behaviorXButton" text="✕" class="file-x" tooltip="Voltar ao arquivo padrão" />
+                        <ui:Button name="behaviorXButton" text="✕" class="file-x" tooltip="Remover arquivo" />
                     </ui:VisualElement>
                     <ui:Button name="behaviorButton" text="+ Carregar arquivo" class="load-btn" />
                     <ui:ScrollView name="behaviorErrorBox" class="err-box hidden" mode="Vertical">

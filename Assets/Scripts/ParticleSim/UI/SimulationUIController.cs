@@ -619,7 +619,7 @@ namespace ParticleSim.UI
 
             bool ok = simulation.LoadSimulation(_scenarioPath, _behaviorPath, false);
             SetStatus(ok
-                ? "Simulação carregada. Pressione \"Rodar\"."
+                ? "Simulação carregada. Pressione \"Iniciar\"."
                 : "Falha ao carregar. Verifique os erros abaixo.");
 
             ShowLoadErrors();
